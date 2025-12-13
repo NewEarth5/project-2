@@ -86,5 +86,5 @@ class Pipeline(nn.Module):
 
 
 if __name__ == "__main__":
-    pipeline = Pipeline(path="datasets/pacman_dataset.pkl")
+    pipeline = Pipeline("datasets/pacman_dataset.pkl")
     pipeline.train()
