@@ -19,6 +19,15 @@ ACTION_INDEX = {
 }
 
 
+def actions_convert(actions):
+    actionsInd = []
+
+    for action in actions:
+        actionsInd.append(ACTION_INDEX[action])
+
+    return torch.tensor(actionsInd, dtype=torch.long)
+
+
 class Pipeline(nn.Module):
     def __init__(self, path):
         """
@@ -35,15 +44,6 @@ class Pipeline(nn.Module):
 
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-
-    def actions_convert(actions):
-        actionsInd = []
-
-        for action in actions:
-            actionsInd.append(ACTION_INDEX[action])
-
-        return torch.tensor(actionsInd, dtype=torch.long)
-    actions_convert = staticmethod(actions_convert)
 
     def train(self):
         print("Beginning of the training of your network...")
@@ -62,7 +62,7 @@ class Pipeline(nn.Module):
             batchesNum = 0
 
             for batchInputs, batchActions in trainLoader:
-                batchActionsInd = Pipeline.actions_convert(batchActions)
+                batchActionsInd = actions_convert(batchActions)
 
                 self.optimizer.zero_grad()
                 batchOutputs = self.model(batchInputs)
