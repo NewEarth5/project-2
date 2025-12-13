@@ -9,26 +9,17 @@ class PacmanNetwork(nn.Module):
     Your neural network architecture.
     """
 
-    def __init__(self, tensor):
+    def __init__(self, input_size):
         super().__init__()
-        self.tensor = tensor
-        self.input = tensor.shape[0]
-        self.layer1 = nn.Linear(
-            self.input,
-            2**round(np.log2(self.input * 3))
-        )
-        self.layer2 = nn.Linear(
-            self.layer1.out_features,
-            self.layer1.out_features / 2
-        )
-        self.layer3 = nn.Linear(
-            self.layer2.out_features,
-            self.layer2.out_features / 2
-        )
-        self.output = nn.Linear(
-            self.layer3.out_features,
-            5
-        )
+        layer1_size = 2**round(np.log2(self.input_size * 3))
+        layer2_size = layer1_size // 2
+        layer3_size = layer2_size // 2
+        output_size = 5
+
+        self.layer1 = nn.Linear(input_size, layer1_size)
+        self.layer2 = nn.Linear(layer1_size, layer2_size)
+        self.layer3 = nn.Linear(layer2_size, layer3_size)
+        self.output = nn.Linear(layer3_size, output_size)
         self.relu = nn.ReLU()
 
     def forward(self, x):
