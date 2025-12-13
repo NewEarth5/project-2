@@ -30,13 +30,13 @@ def state_to_tensor(state):
 
     ghostsPos = np.array(state.getGhostPositions())
     ghostCloInd = np.argmin(sum(abs(ghostsPos - pacmanPos).T))
-    ghostCloPos = ghostsPos[:][ghostCloInd]
+    ghostCloPos = ghostsPos[ghostCloInd]
     ghostCloPosNorm = position_normalize(ghostCloPos, walls)
 
-    wallN = int(walls[pacmanPos[0]][pacmanPos[1] + 1])
-    wallE = int(walls[pacmanPos[0] + 1][pacmanPos[1]])
-    wallS = int(walls[pacmanPos[0]][pacmanPos[1] - 1])
-    wallW = int(walls[pacmanPos[0] - 1][pacmanPos[1]])
+    wallN = float(walls[pacmanPos[0]][pacmanPos[1] + 1])
+    wallE = float(walls[pacmanPos[0] + 1][pacmanPos[1]])
+    wallS = float(walls[pacmanPos[0]][pacmanPos[1] - 1])
+    wallW = float(walls[pacmanPos[0] - 1][pacmanPos[1]])
 
     tensor = torch.tensor([
         pacmanPosNorm[0],    # Pacman's x position
