@@ -1,7 +1,15 @@
-import pickle
+import numpy as np
 
+import pickle
 import torch
 from torch.utils.data import Dataset
+
+
+def position_normalize(position, walls):
+    max_x = walls.width - 1
+    max_y = walls.height - 1
+    max_pos = np.array((max_x, max_y))
+    return position / max_pos
 
 
 def state_to_tensor(state):
@@ -15,8 +23,32 @@ def state_to_tensor(state):
     Arguments:
         state: a GameState object
     """
-    # Your code here
-    return # ...
+    walls = state.getWalls()
+
+    pacmanPos = np.array(state.getPacmanPosition())
+    pacmanPosNorm = position_normalize(pacmanPos, walls)
+
+    ghostsPos = np.array(state.getGhostPositions())
+    ghostCloInd = np.argmin(sum(abs(ghostsPos - pacmanPos).T))
+    ghostCloPos = ghostsPos[:][ghostCloInd]
+    ghostCloPosNorm = position_normalize(ghostCloPos, walls)
+
+    wallN = int(walls[pacmanPos[0]][pacmanPos[1] + 1])
+    wallE = int(walls[pacmanPos[0] + 1][pacmanPos[1]])
+    wallS = int(walls[pacmanPos[0]][pacmanPos[1] - 1])
+    wallW = int(walls[pacmanPos[0] - 1][pacmanPos[1]])
+
+    tensor = torch.tensor([
+        pacmanPosNorm[0],    # Pacman's x position
+        pacmanPosNorm[1],    # Pacman's y position
+        ghostCloPosNorm[0],  # Closest Ghost's x position
+        ghostCloPosNorm[1],  # Closest Ghost's y position
+        wallN,               # Whether there is a wall north
+        wallE,               # Whether there is a wall east
+        wallS,               # Whether there is a wall south
+        wallW,               # Whether there is a wall west
+    ])
+    return tensor
 
 
 class PacmanDataset(Dataset):
