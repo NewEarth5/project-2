@@ -3,7 +3,7 @@ import random
 import torch
 
 from pacman_module.pacman import runGame
-from pacman_module.ghostAgents import SmartyGhost
+from pacman_module.ghostAgents import SmartyGhost, GreedyGhost, DumbyGhost, EastRandyGhost
 
 from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
