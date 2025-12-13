@@ -11,7 +11,7 @@ class PacmanNetwork(nn.Module):
 
     def __init__(self, input_size):
         super().__init__()
-        layer1_size = 2**round(np.log2(self.input_size * 3))
+        layer1_size = 2**round(np.log2(input_size * 3))
         layer2_size = layer1_size // 2
         layer3_size = layer2_size // 2
         output_size = 5
