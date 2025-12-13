@@ -1,2 +1,4 @@
 /__pycache__
 /pacman_module/__pycache__
+__init__.py
+/pacman_module/__init__.py
