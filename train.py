@@ -32,7 +32,7 @@ def actions_convert(actions):
 
 
 class Pipeline(nn.Module):
-    def __init__(self, path):
+    def __init__(self, path, save=True):
         """
         Initialize your training pipeline.
 
@@ -40,6 +40,8 @@ class Pipeline(nn.Module):
             path: The file path to the pickled dataset.
         """
         super().__init__()
+
+        self.save = save
 
         self.path = path
         self.dataset = PacmanDataset(self.path)
@@ -78,7 +80,8 @@ class Pipeline(nn.Module):
             if (epoch + 1) % 10 == 0:
                 print(f"Epoch [{epoch + 1}/{EPOCHSNUM}], Average Loss: {lossAvg:.4f}")
 
-        torch.save(self.model.state_dict(), f"models/pacman_model_V{VERSION}-{EPOCHSNUM}.pth")
+        if (self.save):
+            torch.save(self.model.state_dict(), f"models/pacman_model_V{VERSION}-{EPOCHSNUM}.pth")
         print("Model saved !")
 
 
