@@ -1,3 +1,8 @@
+import numpy as np
+from numpy.random import choice
+
+import torch
+
 from pacman_module.game import Agent
 
 from data import state_to_tensor
@@ -20,6 +25,21 @@ class PacmanAgent(Agent):
 
         self.model = model.eval()
 
+    def get_prediction(self, output, creativity=0, selectMax=None):
+        prob = output[0].detach().cpu().numpy()
+        best = np.argmax(prob)
+        for i in range(len(prob)):
+            prob[i] = max(0, prob[i])
+        sort = np.argsort(prob)
+        if selectMax is not None:
+            for i in range(len(prob) - selectMax):
+                prob[sort[i]] = 0
+        prob = prob / sum(prob)
+        prob *= creativity
+        prob[best] += 1 - creativity
+        print(prob)
+        return choice(list(ACTION_INDEX.keys()), p=prob, size=1)[0]
+
     def get_action(self, state):
         """
         Return the action chosen by the neural network given the
@@ -30,7 +50,5 @@ class PacmanAgent(Agent):
         """
         x = state_to_tensor(state).unsqueeze(0)
         output = self.model(x)
-        predictedInd = output.argmax().item()
-        action = invert_dictionnary(ACTION_INDEX, predictedInd)
 
-        return action
+        return self.get_prediction(output)
