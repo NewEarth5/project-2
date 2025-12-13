@@ -55,7 +55,7 @@ class Pipeline(nn.Module):
             shuffle=True
         )
 
-        epochsNum = 50
+        epochsNum = 100
 
         for epoch in range(epochsNum):
             lossTotal = 0.0
@@ -74,8 +74,8 @@ class Pipeline(nn.Module):
                 batchesNum += 1
 
             lossAvg = lossTotal / batchesNum
-            if (epoch + 1) % 1 == 0:
-                print(f"Epoch [{epoch + 1}/{epochsNum}, Average Loss: {lossAvg:.4f}]")
+            if (epoch + 1) % 10 == 0:
+                print(f"Epoch [{epoch + 1}/{epochsNum}], Average Loss: {lossAvg:.4f}")
 
         torch.save(self.model.state_dict(), "models/pacman_model.pth")
         print("Model saved !")
