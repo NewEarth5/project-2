@@ -13,8 +13,8 @@ class PacmanNetwork(nn.Module):
         super().__init__()
         input_size = 12
         layer1_size = 2**round(np.log2(input_size * 3))
-        layer2_size = layer1_size // 2
-        layer3_size = layer2_size // 2
+        layer2_size = layer1_size * 2 // 3
+        layer3_size = layer2_size * 2 // 3
         output_size = 5
 
         self.layer1 = nn.Linear(input_size, layer1_size)
