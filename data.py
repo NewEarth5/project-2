@@ -24,6 +24,7 @@ def state_to_tensor(state):
         state: a GameState object
     """
     walls = state.getWalls()
+    food = state.getFood()
 
     pacmanPos = np.array(state.getPacmanPosition())
     pacmanPosNorm = position_normalize(pacmanPos, walls)
@@ -38,6 +39,11 @@ def state_to_tensor(state):
     wallS = float(walls[pacmanPos[0]][pacmanPos[1] - 1])
     wallW = float(walls[pacmanPos[0] - 1][pacmanPos[1]])
 
+    foodN = float(food[pacmanPos[0]][pacmanPos[1] + 1])
+    foodE = float(food[pacmanPos[0] + 1][pacmanPos[1]])
+    foodS = float(food[pacmanPos[0]][pacmanPos[1] - 1])
+    foodW = float(food[pacmanPos[0] - 1][pacmanPos[1]])
+
     tensor = torch.tensor([
         pacmanPosNorm[0],    # Pacman's x position
         pacmanPosNorm[1],    # Pacman's y position
@@ -47,6 +53,10 @@ def state_to_tensor(state):
         wallE,               # Whether there is a wall east
         wallS,               # Whether there is a wall south
         wallW,               # Whether there is a wall west
+        foodN,               # Whether there is food north
+        foodE,               # Whether there is food east
+        foodS,               # Whether there is food south
+        foodW,               # Whether there is food west
     ], dtype=torch.float32)
     return tensor
 
