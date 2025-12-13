@@ -9,12 +9,15 @@ from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
 from train import VERSION, EPOCHSNUM
 
+USEDVERSION = f"V{VERSION}-{EPOCHSNUM}"
+# USEDVERSION = "V1-100"
+
 
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
 
-path_to_saved_model = f"models/pacman_model_V{VERSION}-{EPOCHSNUM}.pth"
+path_to_saved_model = f"models/pacman_model_{USEDVERSION}.pth"
 
 # Feel free to add code here depending on your implementation
 
