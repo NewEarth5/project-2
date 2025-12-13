@@ -5,13 +5,6 @@ import torch
 from torch.utils.data import Dataset
 
 
-def position_normalize(position, walls):
-    max_x = walls.width - 1
-    max_y = walls.height - 1
-    max_pos = np.array((max_x, max_y))
-    return position / max_pos
-
-
 def state_to_tensor(state):
     """
     Build the input of your network.
@@ -27,12 +20,10 @@ def state_to_tensor(state):
     food = state.getFood()
 
     pacmanPos = np.array(state.getPacmanPosition())
-    pacmanPosNorm = position_normalize(pacmanPos, walls)
 
     ghostsPos = np.array(state.getGhostPositions())
     ghostCloInd = np.argmin(sum(abs(ghostsPos - pacmanPos).T))
     ghostCloPos = ghostsPos[ghostCloInd]
-    ghostCloPosNorm = position_normalize(ghostCloPos, walls)
 
     wallN = float(walls[pacmanPos[0]][pacmanPos[1] + 1])
     wallE = float(walls[pacmanPos[0] + 1][pacmanPos[1]])
@@ -45,18 +36,18 @@ def state_to_tensor(state):
     foodW = float(food[pacmanPos[0] - 1][pacmanPos[1]])
 
     tensor = torch.tensor([
-        pacmanPosNorm[0],    # Pacman's x position
-        pacmanPosNorm[1],    # Pacman's y position
-        ghostCloPosNorm[0],  # Closest Ghost's x position
-        ghostCloPosNorm[1],  # Closest Ghost's y position
-        wallN,               # Whether there is a wall north
-        wallE,               # Whether there is a wall east
-        wallS,               # Whether there is a wall south
-        wallW,               # Whether there is a wall west
-        foodN,               # Whether there is food north
-        foodE,               # Whether there is food east
-        foodS,               # Whether there is food south
-        foodW,               # Whether there is food west
+        pacmanPos[0],    # Pacman's x position
+        pacmanPos[1],    # Pacman's y position
+        ghostCloPos[0],  # Closest Ghost's x position
+        ghostCloPos[1],  # Closest Ghost's y position
+        wallN,           # Whether there is a wall north
+        wallE,           # Whether there is a wall east
+        wallS,           # Whether there is a wall south
+        wallW,           # Whether there is a wall west
+        foodN,           # Whether there is food north
+        foodE,           # Whether there is food east
+        foodS,           # Whether there is food south
+        foodW,           # Whether there is food west
     ], dtype=torch.float32)
     return tensor
 
