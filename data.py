@@ -4,6 +4,23 @@ import pickle
 import torch
 from torch.utils.data import Dataset
 
+from pacman_module.game import Directions
+
+DIRECTION_MAPPING = {
+    Directions.NORTH: [1, 0, 0, 0],
+    Directions.EAST: [0, 1, 0, 0],
+    Directions.SOUTH: [0, 0, 1, 0],
+    Directions.WEST: [0, 0, 0, 1],
+    Directions.STOP: [0, 0, 0, 0]
+}
+
+
+def position_normalize(position, walls):
+    max_x = walls.width - 1
+    max_y = walls.height - 1
+    max_pos = np.array((max_x, max_y))
+    return position / max_pos
+
 
 def state_to_tensor(state):
     """
@@ -16,14 +33,18 @@ def state_to_tensor(state):
     Arguments:
         state: a GameState object
     """
+    pacmanState = state.getPacmanState()
+
     walls = state.getWalls()
     food = state.getFood()
 
     pacmanPos = np.array(state.getPacmanPosition())
+    pacmanPosNorm = position_normalize(pacmanPos, walls)
 
     ghostsPos = np.array(state.getGhostPositions())
     ghostCloInd = np.argmin(sum(abs(ghostsPos - pacmanPos).T))
     ghostCloPos = ghostsPos[ghostCloInd]
+    ghostCloPosNorm = position_normalize(ghostCloPos, walls)
 
     wallN = float(walls[pacmanPos[0]][pacmanPos[1] + 1])
     wallE = float(walls[pacmanPos[0] + 1][pacmanPos[1]])
@@ -35,19 +56,26 @@ def state_to_tensor(state):
     foodS = float(food[pacmanPos[0]][pacmanPos[1] - 1])
     foodW = float(food[pacmanPos[0] - 1][pacmanPos[1]])
 
+    currentDir = pacmanState.configuration.direction
+    currentDirVec = DIRECTION_MAPPING[currentDir]
+
     tensor = torch.tensor([
-        pacmanPos[0],    # Pacman's x position
-        pacmanPos[1],    # Pacman's y position
-        ghostCloPos[0],  # Closest Ghost's x position
-        ghostCloPos[1],  # Closest Ghost's y position
-        wallN,           # Whether there is a wall north
-        wallE,           # Whether there is a wall east
-        wallS,           # Whether there is a wall south
-        wallW,           # Whether there is a wall west
-        foodN,           # Whether there is food north
-        foodE,           # Whether there is food east
-        foodS,           # Whether there is food south
-        foodW,           # Whether there is food west
+        pacmanPosNorm[0],    # Pacman's normalized x position
+        pacmanPosNorm[1],    # Pacman's normalized y position
+        ghostCloPosNorm[0],  # Closest Ghost's normalized x position
+        ghostCloPosNorm[1],  # Closest Ghost's normalized y position
+        wallN,               # Whether there is a wall north
+        wallE,               # Whether there is a wall east
+        wallS,               # Whether there is a wall south
+        wallW,               # Whether there is a wall west
+        foodN,               # Whether there is food north
+        foodE,               # Whether there is food east
+        foodS,               # Whether there is food south
+        foodW,               # Whether there is food west
+        currentDirVec[0],    # Whether pacman is moving north
+        currentDirVec[1],    # Whether pacman is moving east
+        currentDirVec[2],    # Whether pacman is moving south
+        currentDirVec[3],    # Whether pacman is moving west
     ], dtype=torch.float32)
     return tensor
 
@@ -77,3 +105,10 @@ class PacmanDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.inputs[idx], self.actions[idx]
+
+
+if __name__ == "__main__":
+    from train import Pipeline
+
+    pipeline = Pipeline("datasets/pacman_dataset.pkl", save=False)
+    pipeline.train()
