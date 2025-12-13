@@ -37,7 +37,6 @@ class PacmanAgent(Agent):
         prob = prob / sum(prob)
         prob *= creativity
         prob[best] += 1 - creativity
-        print(prob)
         return choice(list(ACTION_INDEX.keys()), p=prob, size=1)[0]
 
     def get_action(self, state):
