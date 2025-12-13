@@ -46,10 +46,14 @@ def state_to_tensor(state):
     ghostCloPos = ghostsPos[ghostCloInd]
     ghostCloPosNorm = position_normalize(ghostCloPos, walls)
 
-    wallN = float(walls[pacmanPos[0]][pacmanPos[1] + 1])
-    wallE = float(walls[pacmanPos[0] + 1][pacmanPos[1]])
-    wallS = float(walls[pacmanPos[0]][pacmanPos[1] - 1])
-    wallW = float(walls[pacmanPos[0] - 1][pacmanPos[1]])
+    wallNN = float(walls[pacmanPos[0] + 0][pacmanPos[1] + 1])
+    wallNE = float(walls[pacmanPos[0] + 1][pacmanPos[1] + 1])
+    wallEE = float(walls[pacmanPos[0] + 1][pacmanPos[1] + 0])
+    wallSE = float(walls[pacmanPos[0] + 1][pacmanPos[1] - 1])
+    wallSS = float(walls[pacmanPos[0] + 0][pacmanPos[1] - 1])
+    wallSW = float(walls[pacmanPos[0] - 1][pacmanPos[1] - 1])
+    wallWW = float(walls[pacmanPos[0] - 1][pacmanPos[1] + 0])
+    wallNW = float(walls[pacmanPos[0] - 1][pacmanPos[1] + 1])
 
     foodN = float(food[pacmanPos[0]][pacmanPos[1] + 1])
     foodE = float(food[pacmanPos[0] + 1][pacmanPos[1]])
@@ -64,10 +68,14 @@ def state_to_tensor(state):
         pacmanPosNorm[1],    # Pacman's normalized y position
         ghostCloPosNorm[0],  # Closest Ghost's normalized x position
         ghostCloPosNorm[1],  # Closest Ghost's normalized y position
-        wallN,               # Whether there is a wall north
-        wallE,               # Whether there is a wall east
-        wallS,               # Whether there is a wall south
-        wallW,               # Whether there is a wall west
+        wallNN,              # Whether there is a wall north
+        wallNE,              # Whether there is a wall north east
+        wallEE,              # Whether there is a wall east
+        wallSE,              # Whether there is a wall south east
+        wallSS,              # Whether there is a wall south
+        wallSW,              # Whether there is a wall south west
+        wallWW,              # Whether there is a wall west
+        wallNW,              # Whether there is a wall north west
         foodN,               # Whether there is food north
         foodE,               # Whether there is food east
         foodS,               # Whether there is food south
