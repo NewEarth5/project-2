@@ -55,10 +55,14 @@ def state_to_tensor(state):
     wallWW = float(walls[pacmanPos[0] - 1][pacmanPos[1] + 0])
     wallNW = float(walls[pacmanPos[0] - 1][pacmanPos[1] + 1])
 
-    foodN = float(food[pacmanPos[0]][pacmanPos[1] + 1])
-    foodE = float(food[pacmanPos[0] + 1][pacmanPos[1]])
-    foodS = float(food[pacmanPos[0]][pacmanPos[1] - 1])
-    foodW = float(food[pacmanPos[0] - 1][pacmanPos[1]])
+    foodNN = float(food[pacmanPos[0] + 0][pacmanPos[1] + 1])
+    foodNE = float(food[pacmanPos[0] + 1][pacmanPos[1] + 1])
+    foodEE = float(food[pacmanPos[0] + 1][pacmanPos[1] + 0])
+    foodSE = float(food[pacmanPos[0] + 1][pacmanPos[1] - 1])
+    foodSS = float(food[pacmanPos[0] + 0][pacmanPos[1] - 1])
+    foodSW = float(food[pacmanPos[0] - 1][pacmanPos[1] - 1])
+    foodWW = float(food[pacmanPos[0] - 1][pacmanPos[1] + 0])
+    foodNW = float(food[pacmanPos[0] - 1][pacmanPos[1] + 1])
 
     currentDir = pacmanState.configuration.direction
     currentDirVec = DIRECTION_MAPPING[currentDir]
@@ -76,10 +80,14 @@ def state_to_tensor(state):
         wallSW,              # Whether there is a wall south west
         wallWW,              # Whether there is a wall west
         wallNW,              # Whether there is a wall north west
-        foodN,               # Whether there is food north
-        foodE,               # Whether there is food east
-        foodS,               # Whether there is food south
-        foodW,               # Whether there is food west
+        foodNN,              # Whether there is food north
+        foodNE,              # Whether there is food north east
+        foodEE,              # Whether there is food east
+        foodSE,              # Whether there is food south east
+        foodSS,              # Whether there is food south
+        foodSW,              # Whether there is food south west
+        foodWW,              # Whether there is food west
+        foodNW,              # Whether there is food north west
         currentDirVec[0],    # Whether pacman is moving north
         currentDirVec[1],    # Whether pacman is moving east
         currentDirVec[2],    # Whether pacman is moving south
