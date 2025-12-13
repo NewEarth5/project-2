@@ -47,7 +47,7 @@ def state_to_tensor(state):
         wallE,               # Whether there is a wall east
         wallS,               # Whether there is a wall south
         wallW,               # Whether there is a wall west
-    ])
+    ], dtype=torch.float32)
     return tensor
 
 
