@@ -10,6 +10,9 @@ from pacman_module.game import Directions
 from architecture import PacmanNetwork
 from data import PacmanDataset
 
+VERSION = 1
+EPOCHSNUM = 100
+
 ACTION_INDEX = {
     Directions.NORTH: 0,
     Directions.SOUTH: 1,
@@ -55,9 +58,7 @@ class Pipeline(nn.Module):
             shuffle=True
         )
 
-        epochsNum = 100
-
-        for epoch in range(epochsNum):
+        for epoch in range(EPOCHSNUM):
             lossTotal = 0.0
             batchesNum = 0
 
@@ -75,9 +76,9 @@ class Pipeline(nn.Module):
 
             lossAvg = lossTotal / batchesNum
             if (epoch + 1) % 10 == 0:
-                print(f"Epoch [{epoch + 1}/{epochsNum}], Average Loss: {lossAvg:.4f}")
+                print(f"Epoch [{epoch + 1}/{EPOCHSNUM}], Average Loss: {lossAvg:.4f}")
 
-        torch.save(self.model.state_dict(), "models/pacman_model.pth")
+        torch.save(self.model.state_dict(), f"models/pacman_model_V{VERSION}-{EPOCHSNUM}.pth")
         print("Model saved !")
 
 

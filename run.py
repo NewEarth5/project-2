@@ -7,13 +7,14 @@ from pacman_module.ghostAgents import SmartyGhost
 
 from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
+from train import VERSION, EPOCHSNUM
 
 
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
 
-path_to_saved_model = "models/pacman_model.pth"
+path_to_saved_model = f"models/pacman_model_V{VERSION}-{EPOCHSNUM}.pth"
 
 # Feel free to add code here depending on your implementation
 
