@@ -9,8 +9,9 @@ class PacmanNetwork(nn.Module):
     Your neural network architecture.
     """
 
-    def __init__(self, input_size):
+    def __init__(self):
         super().__init__()
+        input_size = 8
         layer1_size = 2**round(np.log2(input_size * 3))
         layer2_size = layer1_size // 2
         layer3_size = layer2_size // 2

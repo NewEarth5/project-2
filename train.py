@@ -40,7 +40,7 @@ class Pipeline(nn.Module):
 
         self.path = path
         self.dataset = PacmanDataset(self.path)
-        self.model = PacmanNetwork(self.dataset[0][0].shape[0])
+        self.model = PacmanNetwork()
 
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
@@ -74,7 +74,7 @@ class Pipeline(nn.Module):
                 batchesNum += 1
 
             lossAvg = lossTotal / batchesNum
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % 1 == 0:
                 print(f"Epoch [{epoch + 1}/{epochsNum}, Average Loss: {lossAvg:.4f}]")
 
         torch.save(self.model.state_dict(), "models/pacman_model.pth")
