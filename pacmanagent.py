@@ -47,7 +47,8 @@ class PacmanAgent(Agent):
         Arguments:
             state: a GameState object
         """
-        x = state_to_tensor(state).unsqueeze(0)
-        output = self.model(x)
+        with torch.no_grad():
+            x = state_to_tensor(state).unsqueeze(0)
+            output = self.model(x)
 
-        return self.get_prediction(output)
+            return self.get_prediction(output)
