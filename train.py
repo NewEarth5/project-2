@@ -6,15 +6,16 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+from pacman_module.game import Directions
 from architecture import PacmanNetwork
 from data import PacmanDataset
 
 ACTION_INDEX = {
-    'North': 0,
-    'South': 1,
-    'East': 2,
-    'West': 3,
-    'Stop': 4
+    Directions.NORTH: 0,
+    Directions.SOUTH: 1,
+    Directions.EAST: 2,
+    Directions.WEST: 3,
+    Directions.STOP: 4
 }
 
 
@@ -54,7 +55,7 @@ class Pipeline(nn.Module):
             shuffle=True
         )
 
-        epochsNum = 500
+        epochsNum = 50
 
         for epoch in range(epochsNum):
             lossTotal = 0.0
