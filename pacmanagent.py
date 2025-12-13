@@ -1,7 +1,12 @@
-from pacman_module.game import Agent
+from pacman_module.game import Agent, Directions
 
 from data import state_to_tensor
 from train import PacmanDataset
+from train import ACTION_INDEX
+
+
+def invert_dictionnary(dictionnary, value):
+    return list(dictionnary.keys())[list(dictionnary.values()).index(value)]
 
 
 class PacmanAgent(Agent):
@@ -25,5 +30,9 @@ class PacmanAgent(Agent):
             state: a GameState object
         """
         x = state_to_tensor(state).unsqueeze(0)
-        # Your code here
-        return # ...
+
+        output = self.model(x)
+        predictedInd = output.argmax(dim=1).item()
+        action = invert_dictionnary(ACTION_INDEX, predictedInd)
+
+        return action
