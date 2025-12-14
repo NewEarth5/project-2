@@ -13,7 +13,7 @@ def invert_dictionnary(dictionnary, value):
 
 
 class PacmanAgent(Agent):
-    def __init__(self, model):
+    def __init__(self, model, doNormalPos, viewDistance):
         """
         Initialize the neural network Pacman agent.
 
@@ -23,6 +23,8 @@ class PacmanAgent(Agent):
         super().__init__()
 
         self.model = model.eval()
+        self.doNormalPos = doNormalPos
+        self.viewDistance = viewDistance
 
     def get_prediction(self, output, creativity=0, selectMax=None):
         prob = output[0].detach().cpu().numpy()
@@ -52,7 +54,7 @@ class PacmanAgent(Agent):
             state: a GameState object
         """
         with torch.no_grad():
-            x = state_to_tensor(state).unsqueeze(0)
+            x = state_to_tensor(state, self.doNormalPos, self.viewDistance).unsqueeze(0)
             output = self.model(x)
 
             return self.get_prediction(output)

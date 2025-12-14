@@ -1,29 +1,62 @@
 import numpy as np
 import random
+import json
+
 import torch
+from torch import nn
 
 from pacman_module.pacman import runGame
 from pacman_module.ghostAgents import SmartyGhost
 
 from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
-from train import VERSION, EPOCHSNUM
+from train import VERSION, get_layer_size_fun, get_action
 
-USEDVERSION = f"V{VERSION}-{EPOCHSNUM}"
+USEDVERSION = f"V{VERSION}-{500}"
 # USEDVERSION = "V1-100"
+
+modelPath = f"models/pacman_model_{USEDVERSION}.pth"
+
+
+with open(f"models/pacman_model_{USEDVERSION}.json", "r") as file:
+    config = json.load(file)
 
 
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
 
-path_to_saved_model = f"models/pacman_model_{USEDVERSION}.pth"
 
-model = PacmanNetwork()
-model.load_state_dict(torch.load(path_to_saved_model, map_location="cpu"))
+# Neural Network
+inputSize = config['network']['inputSize']
+outputSize = config['network']['outputSize']
+layersNum = config['network']['layersNum']
+layer1Size = config['network']['layer1Size']
+layer_size_fun = get_layer_size_fun(config['network']['layerSizeFunName'])
+doNormal = config['network']['doNormal']
+action = get_action(config['network']['actionName'])
+doDropout = config['network']['doDropout']
+dropoutRate = config['network']['dropoutRate']
+
+model = PacmanNetwork(
+    inputSize,
+    outputSize,
+    layersNum,
+    layer1Size,
+    layer_size_fun,
+    doNormal,
+    action,
+    doDropout,
+    dropoutRate
+)
+model.load_state_dict(torch.load(modelPath, map_location="cpu"))
 model.eval()
 
-pacman_agent = PacmanAgent(model)
+# Pacman Agent
+doNormalPos = config['dataset']['doNormalPos']
+viewDistance = config['dataset']['viewDistance']
+
+pacman_agent = PacmanAgent(model, doNormalPos, viewDistance)
 
 score, elapsed_time, nodes = runGame(
     layout_name="test_layout",
