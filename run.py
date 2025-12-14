@@ -10,7 +10,7 @@ from pacman_module.ghostAgents import SmartyGhost
 
 from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
-from train import VERSION, get_layer_size_fun, get_action
+from train import VERSION, get_layer_size_fun, get_action, get_layer_fun, get_normal_fun
 
 USEDVERSION = f"V{VERSION}-{500}"
 # USEDVERSION = "V1-100"
@@ -33,7 +33,9 @@ outputSize = config['network']['outputSize']
 layersNum = config['network']['layersNum']
 layer1Size = config['network']['layer1Size']
 layer_size_fun = get_layer_size_fun(config['network']['layerSizeFunName'])
+layer_fun = get_layer_fun(config['network']['layerFunName'])
 doNormal = config['network']['doNormal']
+normal_fun = get_normal_fun(config['network']['normalFunName'])
 action = get_action(config['network']['actionName'])
 doDropout = config['network']['doDropout']
 dropoutRate = config['network']['dropoutRate']
@@ -44,7 +46,9 @@ model = PacmanNetwork(
     layersNum,
     layer1Size,
     layer_size_fun,
+    layer_fun,
     doNormal,
+    normal_fun,
     action,
     doDropout,
     dropoutRate
