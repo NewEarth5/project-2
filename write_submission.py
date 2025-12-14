@@ -7,6 +7,7 @@ from pacmanagent import PacmanAgent
 from train import VERSION, EPOCHSNUM
 
 USEDVERSION = f"V{VERSION}-{EPOCHSNUM}"
+# USEDVERSION = "V8.3-500"
 
 
 class SubmissionWriter:

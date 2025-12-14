@@ -1,12 +1,10 @@
 import numpy as np
 
-import pickle
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from pacman_module.game import Directions
 from architecture import PacmanNetwork
 from data import PacmanDataset
 
@@ -17,17 +15,8 @@ print(f"Using device: {DEVICE}")
 if USE_CUDA:
     print(f"CUDA device: {torch.cuda.get_device_name(0)}")
 
-VERSION = 6.1
+VERSION = 8.4
 EPOCHSNUM = 500
-
-
-# def actions_convert(actions):
-#     actionsInd = []
-
-#     for action in actions:
-#         actionsInd.append(ACTION_INDEX[action])
-
-#     return torch.tensor(actionsInd, dtype=torch.long)
 
 
 class Pipeline(nn.Module):
@@ -116,7 +105,7 @@ class Pipeline(nn.Module):
 
             if (epoch + 1) % 50 == 0:
                 print(f"Epoch [{epoch + 1}/{epochsNum}]")
-                print(f"  Train Loss: {trainLossAvg:.4f}, Train Acc: {trainAcc:.5f}%")
+                print(f"  Train Loss: {trainLossAvg:.4f}, Train Acc: {trainAcc:.2f}%")
 
             if len(validLoader) != 0:
                 self.model.eval()
@@ -144,7 +133,7 @@ class Pipeline(nn.Module):
                 self.scheduler.step(validLossAvg)
 
                 if (epoch + 1) % 50 == 0:
-                    print(f"  Valid Loss: {validLossAvg:.4f}, Valid Acc: {validAcc:.5f}%")
+                    print(f"  Valid Loss: {validLossAvg:.4f}, Valid Acc: {validAcc:.2f}%")
 
                 if abs(lossPrev - validLossAvg) < precision:
                     print(f"Early stopping at epoch {epoch + 1}")
@@ -168,5 +157,21 @@ class Pipeline(nn.Module):
 
 
 if __name__ == "__main__":
+    # TODO tweaking:
+    #   - Data:
+    #       - Distance (N)
+    #   - Neural Network:
+    #       - Number of Layers
+    #       - Layer Size
+    #       - Normalisation
+    #       - Activation
+    #       - Dropout rate
+    #   - Training:
+    #       - Criterion
+    #       - Optimizer
+    #       - Learning rate
+    #       - Scheduler
+    #       - Batchsize
+    #       - Normalisation
     pipeline = Pipeline("datasets/pacman_dataset.pkl", validSplit=0.2)
     pipeline.train(version=VERSION, epochsNum=EPOCHSNUM)

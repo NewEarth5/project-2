@@ -3,7 +3,7 @@ import random
 import torch
 
 from pacman_module.pacman import runGame
-from pacman_module.ghostAgents import SmartyGhost, GreedyGhost, DumbyGhost, EastRandyGhost
+from pacman_module.ghostAgents import SmartyGhost
 
 from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
@@ -18,8 +18,6 @@ random.seed(SEED)
 np.random.seed(SEED)
 
 path_to_saved_model = f"models/pacman_model_{USEDVERSION}.pth"
-
-# Feel free to add code here depending on your implementation
 
 model = PacmanNetwork()
 model.load_state_dict(torch.load(path_to_saved_model, map_location="cpu"))
