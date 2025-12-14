@@ -30,7 +30,7 @@ PARAM = {
         'layerFun': ['Linear'],
         'doNormal': [True],
         'normalFun': ['BatchNorm1d'],
-        'action': ['GELU'],
+        'action': ['SiLU'],
         'doDropout': [True],
         'dropoutRate': [0.2],
     },
@@ -44,7 +44,7 @@ PARAM = {
         'validSplit': [0.2],
         'precision': [0.000001],
         'precisionBest': [2],
-        'patienceLimit': [50],
+        'patienceLimit': [75],
         'epochsNum': [1000],
         'batchSize': [512],
     }
