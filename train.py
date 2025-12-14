@@ -1,5 +1,9 @@
+import os
+import json
 import random
 import traceback
+
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -36,8 +40,8 @@ PARAMETERS = {
     },
     'training': {
         'learningRate': [0.0001, 0.0005, 0.001, 0.005, 0.01],
-        'criterion': ['CrossEntropyLoss', 'NLLLoss'],
-        'optimizer': ['Adam', 'AdamW', 'SGD', 'RMSprop', 'Adagard'],
+        'criterion': ['MSELoss', 'CrossEntropyLoss', 'NLLLoss', 'HuberLoss', 'SmoothL1Loss'],
+        'optimizer': ['Adam', 'AdamW', 'SGD', 'RMSprop', 'Adagrad'],
         'weightDecay': [0.0, 0.1, 0.01, 0.001, 0.0001],
         'doScheduler': [True, False],
         'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR', 'StepLR'],
@@ -91,7 +95,7 @@ def get_action(name):
         "Sigmoid": nn.Sigmoid,
         "SiLU": nn.SiLU,
         "Mish": nn.Mish,
-        "Sofplus": nn.Softplus,
+        "Softplus": nn.Softplus,
         "Softshrink": nn.Softshrink,
         "Softsign": nn.Softsign,
         "Tanh": nn.Tanh,
@@ -261,7 +265,6 @@ class Pipeline(nn.Module):
         batchSize,
         precision=0,
         precisionBest=0,
-        version=1,
         save=True
     ):
         print("Beginning of the training of your network...")
@@ -275,16 +278,16 @@ class Pipeline(nn.Module):
             batch_size=batchSize,
             shuffle=True,
             pin_memory=USE_CUDA,
-            # num_workers=2,
-            # persistent_workers=True
+            num_workers=2,
+            persistent_workers=True
         )
         validLoader = DataLoader(
             self.datasetValid,
             batch_size=batchSize,
             shuffle=False,
             pin_memory=USE_CUDA,
-            # num_workers=2,
-            # persistent_workers=True
+            num_workers=2,
+            persistent_workers=True
         )
 
         print(f"Dataset size: {len(self.dataset)}")  # Dataset size 15018
@@ -317,7 +320,7 @@ class Pipeline(nn.Module):
             trainLossAvg = trainLossTot / len(trainLoader)
             trainAcc = 100. * trainCor / trainTot
 
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % (epochsNum // 10) == 0:
                 print(f"Epoch [{epoch + 1}/{epochsNum}]")
                 print(f"  Train Loss: {trainLossAvg:.4f}, Train Acc: {trainAcc:.2f}%")
 
@@ -346,14 +349,17 @@ class Pipeline(nn.Module):
                 lossAvg = validLossAvg
                 acc = validAcc
 
-                if (epoch + 1) % 10 == 0:
+                if (epoch + 1) % (epochsNum // 10) == 0:
                     print(f"  Valid Loss: {validLossAvg:.4f}, Valid Acc: {validAcc:.2f}%")
             else:
                 lossAvg = trainLossAvg
                 acc = trainAcc
 
             if self.scheduler is not None:
-                self.scheduler.step()
+                try:
+                    self.scheduler.step(metrics=lossAvg)
+                except Exception:
+                    self.scheduler.step()
 
             if precisionBest != 0:
                 if (lossAvg < self.bestLoss and precisionBest == 1) or (acc > self.bestAcc and precisionBest == 2):
@@ -361,7 +367,7 @@ class Pipeline(nn.Module):
                     self.bestAcc = acc
                     self.patienceCount = 0
                     if save:
-                        torch.save(self.model.state_dict(), f"models/pacman_model_V{version}.pth")
+                        torch.save(self.model.state_dict(), self.path)
                         print("Model saved !")
                 else:
                     self.patienceCount += 1
@@ -377,7 +383,7 @@ class Pipeline(nn.Module):
             accPrev = acc
 
         if save and precisionBest == 0:
-            torch.save(self.model.state_dict(), f"models/pacman_model_V{version}.pth")
+            torch.save(self.model.state_dict(), self.path)
             print("Model saved !")
 
         print("Finished training your network model...")
@@ -385,18 +391,22 @@ class Pipeline(nn.Module):
         return [lossPrev, accPrev] if precisionBest == 0 else [self.bestLoss, self.bestAcc]
 
 
-def search_training(path, numTrials=100, resultsFile="training_results.json"):
+def search_training(folderPath, numTrials=100, resultsFolder="models/"):
     results = []
     failed = []
-    ver = 1
+    files = os.listdir(folderPath)
+    folders = np.array([folder for folder in files if os.path.isdir(os.path.join(folderPath, folder))], dtype=int)
+    if folders.size == 0:
+        folder = 1
+    else:
+        folder = max(folders) + 1
+    os.makedirs(os.path.join(folderPath, str(folder)))
 
     for trial in range(numTrials):
         print()
         print(f"{'='*60}")
         print(f"Trial {trial + 1}/{numTrials}")
         print(f"{'='*60}")
-
-        version = f"{ver}.{trial}"
 
         config = config = {
             'dataset': {
@@ -435,26 +445,26 @@ def search_training(path, numTrials=100, resultsFile="training_results.json"):
 
         try:
             dataset = PacmanDataset(
-                path,
-                doNormalPos=config['dataset']['doNormalPos'],
-                viewDistance=config['dataset']['viewDistance'],
+                os.path.join("datasets", "pacman_dataset.pkl"),
+                config['dataset']['doNormalPos'],
+                config['dataset']['viewDistance'],
             )
 
             inputSize = get_tensor_size(config['dataset']['viewDistance'])
             layer1Size = int(inputSize * config['network']['layer1SizeMultiplier'])
 
             model = PacmanNetwork(
-                inputSize=inputSize,
-                outputSize=5,
-                layersNum=config['network']['layersNum'],
-                layer1Size=layer1Size,
-                layer_size_fun=get_layer_size_fun(config['network']['layerSizeFun']),
-                layer_fun=get_layer_fun(config['network']['layerFun']),
-                doNormal=config['network']['doNormal'],
-                normal_fun=get_normal_fun(config['network']['normalFun']),
-                action=get_action(config['network']['action']),
-                doDropout=config['network']['doDropout'],
-                dropoutRate=config['network']['dropoutRate'],
+                inputSize,
+                5,
+                config['network']['layersNum'],
+                layer1Size,
+                get_layer_size_fun(config['network']['layerSizeFun']),
+                get_layer_fun(config['network']['layerFun']),
+                config['network']['doNormal'],
+                get_normal_fun(config['network']['normalFun']),
+                get_action(config['network']['action']),
+                config['network']['doDropout'],
+                config['network']['dropoutRate'],
             ).to(DEVICE)
 
             criterion = create_criterion(config['training']['criterion'])
@@ -471,22 +481,21 @@ def search_training(path, numTrials=100, resultsFile="training_results.json"):
             )
 
             pipeline = Pipeline(
-                path=path,
-                dataset=dataset,
-                model=model,
-                criterion=criterion,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                validSplit=config['training']['validSplit'],
-                patienceLimit=config['training']['patienceLimit']
+                os.path.join(folderPath, str(folder), f"pacman_model_V{trial + 1}.pth"),
+                dataset,
+                model,
+                criterion,
+                optimizer,
+                scheduler,
+                config['training']['validSplit'],
+                config['training']['patienceLimit']
             )
 
             bestLoss, bestAcc = pipeline.train(
-                epochsNum=config['training']['epochsNum'],
-                batchSize=config['training']['batchSize'],
-                precision=config['training']['precision'],
-                precisionBest=config['training']['precisionBest'],
-                version=version
+                config['training']['epochsNum'],
+                config['training']['batchSize'],
+                config['training']['precision'],
+                config['training']['precisionBest']
             )
 
             result = {
@@ -501,7 +510,7 @@ def search_training(path, numTrials=100, resultsFile="training_results.json"):
 
             print(f"SUCCESS - Loss: {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
 
-            with open(f"models/pacman_model_V{version}.json", "w") as f:
+            with open(os.path.join(folderPath, str(folder), f"pacman_model_V{trial + 1}.json"), "w") as f:
                 json.dump(result, f, indent=2)
 
         except Exception as e:
@@ -518,7 +527,7 @@ def search_training(path, numTrials=100, resultsFile="training_results.json"):
             print(f"Error: {str(e)}")
 
         finally:
-            with open(resultsFile, "w") as f:
+            with open(os.path.join(folderPath, f"training_results_V{folder}.json"), "w") as f:
                 json.dump({
                     'results': results,
                     'failed': failed,
@@ -539,19 +548,18 @@ def search_training(path, numTrials=100, resultsFile="training_results.json"):
 
 
 if __name__ == "__main__":
-    import json
 
     torch.manual_seed(42)
     random.seed(42)
 
-    path = "datasets/pacman_dataset.pkl"
+    folderPath = "models"
     testNum = 10
     bestLoss = float('inf')
     bestLossModel = ""
     bestAcc = 0
     bestAccModel = ""
 
-    results, failed = search_training(path, numTrials=100)
+    results, failed = search_training(folderPath, numTrials=1000)
 
     if results:
         best_by_acc = max(results, key=lambda x: x['performance']['accuracy'])
