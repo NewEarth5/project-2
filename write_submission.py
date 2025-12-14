@@ -57,8 +57,8 @@ class SubmissionWriter:
 
 
 if __name__ == "__main__":
-    folder = 4
-    version = get_best(folder, index=1)
+    folder = 5
+    version = get_best(folder, index=0)
     modelPath = f"models/{folder}/pacman_model_V{version}"
     writer = SubmissionWriter(
         "datasets/pacman_test.pkl",
