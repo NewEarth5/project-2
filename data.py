@@ -22,6 +22,8 @@ DIRECTION_MAPPING = {
     Directions.STOP: [0, 0, 0, 0]
 }
 
+TENSOR_SIZE = 24
+
 
 def position_normalize(position, walls):
     max_x = walls.width - 1
