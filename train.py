@@ -80,37 +80,37 @@ PARAM = {
 #         'batchSize': [512],
 #     }
 # }
-PARAM = {
-    'dataset': {
-        'doNormalPos': [False],
-        'viewDistance': [4],
-    },
-    'network': {
-        'layersNum': [4],
-        'layer1SizeMultiplier': [4],
-        'layerSizeFun': ['linear'],
-        'layerFun': ['Linear'],
-        'doNormal': [True],
-        'normalFun': ['BatchNorm1d'],
-        'action': ['GELU'],
-        'doDropout': [True],
-        'dropoutRate': [0.2],
-    },
-    'training': {
-        'learningRate': [0.0005],
-        'criterion': ['CrossEntropyLoss'],
-        'optimizer': ['AdamW'],
-        'weightDecay': [0.0],
-        'doScheduler': [False],
-        'schedulerType': ['StepLR'],
-        'validSplit': [0.2],
-        'precision': [0.000001],
-        'precisionBest': [2],
-        'patienceLimit': [50],
-        'epochsNum': [1000],
-        'batchSize': [512],
-    }
-}
+# PARAM = {
+#     'dataset': {
+#         'doNormalPos': [False],
+#         'viewDistance': [4],
+#     },
+#     'network': {
+#         'layersNum': [4],
+#         'layer1SizeMultiplier': [4],
+#         'layerSizeFun': ['linear'],
+#         'layerFun': ['Linear'],
+#         'doNormal': [True],
+#         'normalFun': ['BatchNorm1d'],
+#         'action': ['GELU'],
+#         'doDropout': [True],
+#         'dropoutRate': [0.2],
+#     },
+#     'training': {
+#         'learningRate': [0.0005],
+#         'criterion': ['CrossEntropyLoss'],
+#         'optimizer': ['AdamW'],
+#         'weightDecay': [0.0],
+#         'doScheduler': [False],
+#         'schedulerType': ['StepLR'],
+#         'validSplit': [0.2],
+#         'precision': [0.000001],
+#         'precisionBest': [2],
+#         'patienceLimit': [50],
+#         'epochsNum': [1000],
+#         'batchSize': [512],
+#     }
+# }
 
 
 def get_layer_size_fun(name):
