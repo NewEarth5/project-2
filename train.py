@@ -24,29 +24,29 @@ PARAMETERS = {
         'viewDistance': [3, 5, 7],
     },
     'network': {
-        'layersNum': [2, 3, 4, 5],
-        'layer1SizeMultiplier': [1.0, 1.5, 2.0, 3.0],
-        'layerSizeFun': ['two_thirds', 'half', 'diamond'],
+        'layersNum': [2, 3, 4, 5, 6, 7],
+        'layer1SizeMultiplier': [1.0, 1.5, 2.0, 3.0, 5.0],
+        'layerSizeFun': ['two_thirds', 'half', 'diamond', 'linear'],
         'layerFun': ['Linear'],
         'doNormal': [True, False],
-        'normalFun': ['BatchNorm1d', 'LayerNorm'],
-        'action': ['ReLU', 'LeakyReLU', 'GELU', 'Tanh', 'ELU'],
+        'normalFun': ['BatchNorm1d', 'GroupNorm', 'InstanceNorm1d', 'LayerNorm', 'LocalResponseNorm', 'RMSNorm'],
+        'action': ['ReLU', 'LeakyReLU', 'GELU', 'Tanh', 'ELU', 'Sigmoid', 'SiLU', 'Mish', 'Softplus', 'PReLU'],
         'doDropout': [True, False],
         'dropoutRate': [0.1, 0.2, 0.3, 0.5],
     },
     'training': {
         'learningRate': [0.0001, 0.0005, 0.001, 0.005, 0.01],
-        'criterion': ['CrossEntropyLoss'],
-        'optimizer': ['Adam', 'AdamW', 'SGD'],
-        'weightDecay': [0.0, 0.0001, 0.001],
+        'criterion': ['CrossEntropyLoss', 'NLLLoss'],
+        'optimizer': ['Adam', 'AdamW', 'SGD', 'RMSprop', 'Adagard'],
+        'weightDecay': [0.0, 0.1, 0.01, 0.001, 0.0001],
         'doScheduler': [True, False],
-        'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR'],
-        'validSplit': [0.15, 0.2],
+        'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR', 'StepLR'],
+        'validSplit': [0, 0.05, 0.1, 0.15, 0.2],
         'precision': [0.0000001, 0.0000005, 0.000001],
-        'precisionBest': [1, 2],
-        'patienceLimit': [10, 15, 20],
-        'epochsNum': [100, 200, 300],
-        'batchSize': [32, 64, 128, 256],
+        'precisionBest': [0, 1, 2],
+        'patienceLimit': [10, 20, 30, 40, 50],
+        'epochsNum': [100, 200, 300, 500, 1000],
+        'batchSize': [32, 64, 128, 256, 512, 1024],
     }
 }
 
@@ -353,7 +353,7 @@ class Pipeline(nn.Module):
                 acc = trainAcc
 
             if self.scheduler is not None:
-                self.scheduler.step(lossAvg)
+                self.scheduler.step()
 
             if precisionBest != 0:
                 if (lossAvg < self.bestLoss and precisionBest == 1) or (acc > self.bestAcc and precisionBest == 2):
@@ -551,7 +551,7 @@ if __name__ == "__main__":
     bestAcc = 0
     bestAccModel = ""
 
-    results, failed = search_training(path, numTrials=1)
+    results, failed = search_training(path, numTrials=100)
 
     if results:
         best_by_acc = max(results, key=lambda x: x['performance']['accuracy'])
