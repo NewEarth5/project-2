@@ -162,6 +162,7 @@ class Pipeline(nn.Module):
             self.scheduler = None
 
         self.bestLoss = float('inf')
+        self.bestAcc = 0
         self.patienceCount = 0
         self.patienceLimit = patienceLimit
 
@@ -170,7 +171,7 @@ class Pipeline(nn.Module):
         epochsNum,
         batchSize,
         precision=0,
-        precisionBest=False,
+        precisionBest=0,
         version=1,
         save=True
     ):
@@ -178,6 +179,7 @@ class Pipeline(nn.Module):
         print(f"Device used: {next(self.model.parameters()).device}")
 
         lossPrev = float('inf')
+        accPrev = 0
 
         trainLoader = DataLoader(
             self.datasetTrain,
@@ -226,7 +228,7 @@ class Pipeline(nn.Module):
             trainLossAvg = trainLossTot / len(trainLoader)
             trainAcc = 100. * trainCor / trainTot
 
-            if (epoch + 1) % 50 == 0:
+            if (epoch + 1) % 10 == 0:
                 print(f"Epoch [{epoch + 1}/{epochsNum}]")
                 print(f"  Train Loss: {trainLossAvg:.4f}, Train Acc: {trainAcc:.2f}%")
 
@@ -253,18 +255,21 @@ class Pipeline(nn.Module):
                 validLossAvg = validLossTot / len(validLoader)
                 validAcc = 100. * validCor / validTot
                 lossAvg = validLossAvg
+                acc = validAcc
 
-                if (epoch + 1) % 50 == 0:
+                if (epoch + 1) % 10 == 0:
                     print(f"  Valid Loss: {validLossAvg:.4f}, Valid Acc: {validAcc:.2f}%")
             else:
                 lossAvg = trainLossAvg
+                acc = trainAcc
 
             if self.scheduler is not None:
                 self.scheduler.step(lossAvg)
 
-            if precisionBest:
-                if lossAvg < self.bestLoss:
+            if precisionBest != 0:
+                if (lossAvg < self.bestLoss and precisionBest == 1) or (acc > self.bestAcc and precisionBest == 2):
                     self.bestLoss = lossAvg
+                    self.bestAcc = acc
                     self.patienceCount = 0
                     if save:
                         torch.save(self.model.state_dict(), f"models/pacman_model_V{version}-{epochsNum}.pth")
@@ -273,19 +278,21 @@ class Pipeline(nn.Module):
                     self.patienceCount += 1
                     if self.patienceCount >= self.patienceLimit:
                         print(f"Early stopping at epoch {epoch + 1}")
-                        break
             else:
                 if abs(lossPrev - trainLossAvg) < precision:
                     print(f"Early stopping at epoch {epoch + 1}")
                     break
 
             lossPrev = lossAvg
+            accPrev = acc
 
-        if save and precisionBest is not True:
+        if save and precisionBest == 0:
             torch.save(self.model.state_dict(), f"models/pacman_model_V{version}.pth")
             print("Model saved !")
 
         print("Finished training your network model...")
+
+        return [lossPrev, accPrev] if precisionBest == 0 else [self.bestLoss, self.bestAcc]
 
 
 if __name__ == "__main__":
@@ -293,6 +300,10 @@ if __name__ == "__main__":
 
     path = "datasets/pacman_dataset.pkl"
     testNum = 10
+    bestLoss = float('inf')
+    bestLossModel = ""
+    bestAcc = 0
+    bestAccModel = ""
 
     try:
         # Dataset
@@ -472,7 +483,7 @@ if __name__ == "__main__":
                                                                         scheduler = allScheduler[p5]
                                                                         for p6 in range(9 + 1):
                                                                             validSplit = p6 / 10
-                                                                            allPrecisionBest = [True, False]
+                                                                            allPrecisionBest = [0, 1, 2]
                                                                             for p7 in range(len(allPrecisionBest)):
                                                                                 precisionBest = allPrecisionBest[p7]
                                                                                 if precisionBest:
@@ -506,7 +517,7 @@ if __name__ == "__main__":
                                                                                                     version = f"{d1}.{d2}-{n1}.{n2}.{n3}.{n4}.{n5}.{n6}.{n7}.{n8}.{n9}-{p1}.{p2}.{p3}.{p4}.{p5}.{p6}.{p7}.{p8}-{t1}.{t2}.{t3}-{test}"
                                                                                                     save = True
 
-                                                                                                    pipeline.train(
+                                                                                                    curLoss, curAcc = pipeline.train(
                                                                                                         epochsNum,
                                                                                                         batchSize,
                                                                                                         precision=precision,
@@ -514,6 +525,20 @@ if __name__ == "__main__":
                                                                                                         version=version,
                                                                                                         save=save
                                                                                                     )
+
+                                                                                                    if curLoss < bestLoss:
+                                                                                                        bestLossModel = version
+                                                                                                        print()
+                                                                                                        print(f"---New best loss model ({bestLoss:.4f} -> {curLoss:.4f}): {bestLossModel}")
+                                                                                                        print()
+                                                                                                        bestLoss = curLoss
+
+                                                                                                    if curAcc > bestAcc:
+                                                                                                        bestAccModel = version
+                                                                                                        print()
+                                                                                                        print(f"---New best accuracy model ({bestAcc:.2f}% -> {curAcc:.2f}%): {bestAccModel}")
+                                                                                                        print()
+                                                                                                        bestAcc = curAcc
 
                                                                                                     if save:
                                                                                                         dict = {
@@ -533,6 +558,10 @@ if __name__ == "__main__":
                                                                                                                 'actionName': actionName,
                                                                                                                 'doDropout': doDropout,
                                                                                                                 'dropoutRate': dropoutRate,
+                                                                                                            },
+                                                                                                            'performance': {
+                                                                                                                'loss': curLoss,
+                                                                                                                'accuracy': curAcc,
                                                                                                             },
                                                                                                         }
 
