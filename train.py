@@ -1,3 +1,6 @@
+import random
+import traceback
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,107 +18,197 @@ if USE_CUDA:
 
 VERSION = 8.5
 
+PARAMETERS = {
+    'dataset': {
+        'doNormalPos': [True, False],
+        'viewDistance': [3, 5, 7],
+    },
+    'network': {
+        'layersNum': [2, 3, 4, 5],
+        'layer1SizeMultiplier': [1.0, 1.5, 2.0, 3.0],
+        'layerSizeFun': ['two_thirds', 'half', 'diamond'],
+        'layerFun': ['Linear'],
+        'doNormal': [True, False],
+        'normalFun': ['BatchNorm1d', 'LayerNorm'],
+        'action': ['ReLU', 'LeakyReLU', 'GELU', 'Tanh', 'ELU'],
+        'doDropout': [True, False],
+        'dropoutRate': [0.1, 0.2, 0.3, 0.5],
+    },
+    'training': {
+        'learningRate': [0.0001, 0.0005, 0.001, 0.005, 0.01],
+        'criterion': ['CrossEntropyLoss'],
+        'optimizer': ['Adam', 'AdamW', 'SGD'],
+        'weightDecay': [0.0, 0.0001, 0.001],
+        'doScheduler': [True, False],
+        'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR'],
+        'validSplit': [0.15, 0.2],
+        'precision': [0.0000001, 0.0000005, 0.000001],
+        'precisionBest': [1, 2],
+        'patienceLimit': [10, 15, 20],
+        'epochsNum': [100, 200, 300],
+        'batchSize': [32, 64, 128, 256],
+    }
+}
+
 
 def get_layer_size_fun(name):
-    if name == "two_thirds":
-        return lambda prev, i, num: prev * 2 // 3
-    if name == "half":
-        return lambda prev, i, num: prev // 2
-    if name == "diamond":
-        return lambda prev, i, num: prev * 2 if i <= num // 2 else prev // 2
-    if name == "linear":
-        return lambda prev, i, num: prev
-    raise ValueError()
+    layerSize = {
+        "two_thirds": lambda prev, i, num: prev * 2 // 3,
+        "half": lambda prev, i, num: prev // 2,
+        "diamond": lambda prev, i, num: prev * 2 if i <= num // 2 else prev // 2,
+        "linear": lambda prev, i, num: prev,
+    }
+    if name in layerSize:
+        return layerSize[name]
+    raise ValueError(f"Unknown layer size function: {name}")
 
 
 def get_layer_fun(name):
-    if name == "Linear":
-        return nn.Linear
-    raise ValueError()
+    layer = {
+        "Linear": nn.Linear,
+    }
+    if name in layer:
+        return layer[name]
+    raise ValueError(f"Unknown layer function: {name}")
 
 
 def get_action(name):
-    if name == "ELU":
-        return nn.ELU()
-    if name == "Hardshrink":
-        return nn.Hardshrink()
-    if name == "Hardsigmoid":
-        return nn.Hardsigmoid()
-    if name == "Hardtanh":
-        return nn.Hardtanh()
-    if name == "Hardswish":
-        return nn.Hardswish()
-    if name == "LeakyReLU":
-        return nn.LeakyReLU()
-    if name == "LogSigmoid":
-        return nn.LogSigmoid()
-    if name == "PReLU":
-        return nn.PReLU()
-    if name == "ReLU":
-        return nn.ReLU()
-    if name == "ReLU6":
-        return nn.ReLU6()
-    if name == "RReLU":
-        return nn.RReLU()
-    if name == "SELU":
-        return nn.SELU()
-    if name == "CELU":
-        return nn.CELU()
-    if name == "GELU":
-        return nn.GELU()
-    if name == "Sigmoid":
-        return nn.Sigmoid()
-    if name == "SiLU":
-        return nn.SiLU()
-    if name == "Mish":
-        return nn.Mish()
-    if name == "Sofplus":
-        return nn.Softplus()
-    if name == "Softshrink":
-        return nn.Softshrink()
-    if name == "Softsign":
-        return nn.Softsign()
-    if name == "Tanh":
-        return nn.Tanh()
-    if name == "Tanhshrink":
-        return nn.Tanhshrink()
-    if name == "GLU":
-        return nn.GLU()
-    if name == "Softmin":
-        return nn.Softmin()
-    if name == "Softmax":
-        return nn.Softmax()
-    if name == "Softmax2d":
-        return nn.Softmax2d()
-    if name == "LogSoftmax":
-        return nn.LogSoftmax()
-    raise ValueError()
+    actions = {
+        "ELU": nn.ELU,
+        "Hardshrink": nn.Hardshrink,
+        "Hardsigmoid": nn.Hardsigmoid,
+        "Hardtanh": nn.Hardtanh,
+        "Hardswish": nn.Hardswish,
+        "LeakyReLU": nn.LeakyReLU,
+        "LogSigmoid": nn.LogSigmoid,
+        "PReLU": nn.PReLU,
+        "ReLU": nn.ReLU,
+        "ReLU6": nn.ReLU6,
+        "RReLU": nn.RReLU,
+        "SELU": nn.SELU,
+        "CELU": nn.CELU,
+        "GELU": nn.GELU,
+        "Sigmoid": nn.Sigmoid,
+        "SiLU": nn.SiLU,
+        "Mish": nn.Mish,
+        "Sofplus": nn.Softplus,
+        "Softshrink": nn.Softshrink,
+        "Softsign": nn.Softsign,
+        "Tanh": nn.Tanh,
+        "Tanhshrink": nn.Tanhshrink,
+        "GLU": nn.GLU,
+        "Softmin": nn.Softmin,
+        "Softmax": nn.Softmax,
+        "Softmax2d": nn.Softmax2d,
+        "LogSoftmax": nn.LogSoftmax,
+    }
+    if name in actions:
+        return actions[name]
+    raise ValueError(f"Unknown activation function: {name}")
 
 
 def get_normal_fun(name):
-    if name == "BatchNorm1d":
-        return nn.BatchNorm1d
-    if name == "BatchNorm2d":
-        return nn.BatchNorm2d
-    if name == "BatchNorm3d":
-        return nn.BatchNorm3d
-    if name == "GroupNorm":
-        return lambda val: nn.GroupNorm(5, val)
-    if name == "SyncBatchNorm":
-        return nn.SyncBatchNorm
-    if name == "InstanceNorm1d":
-        return nn.InstanceNorm1d
-    if name == "InstanceNorm2d":
-        return nn.InstanceNorm2d
-    if name == "InstanceNorm3d":
-        return nn.InstanceNorm3d
-    if name == "LayerNorm":
-        return nn.LayerNorm
-    if name == "LocalResponseNorm":
-        return nn.LocalResponseNorm
-    if name == "RMSNorm":
-        return nn.RMSNorm
-    raise ValueError()
+    normal = {
+        "BatchNorm1d": nn.BatchNorm1d,
+        "GroupNorm": lambda val: nn.GroupNorm(val, val),
+        "InstanceNorm1d": nn.InstanceNorm1d,
+        "LayerNorm": nn.LayerNorm,
+        "LocalResponseNorm": nn.LocalResponseNorm,
+        "RMSNorm": nn.RMSNorm,
+    }
+    if name in normal:
+        return normal[name]
+    raise ValueError(f"Unknown normalisation function: {name}")
+
+
+def create_criterion(name):
+    criterion = {
+        "L1Loss": nn.L1Loss,
+        "MSELoss": nn.MSELoss,
+        "CrossEntropyLoss": nn.CrossEntropyLoss,
+        "CTCLoss": nn.CTCLoss,
+        "NLLLoss": nn.NLLLoss,
+        "PoissonNLLLoss": nn.PoissonNLLLoss,
+        "GaussianNLLLoss": nn.GaussianNLLLoss,
+        "KLDivLoss": nn.KLDivLoss,
+        "BCELoss": nn.BCELoss,
+        "BCEWithLogitsLoss": nn.BCEWithLogitsLoss,
+        "MarginRankingLoss": nn.MarginRankingLoss,
+        "HingeEmbeddingLoss": nn.HingeEmbeddingLoss,
+        "MultiLabelMarginLoss": nn.MultiLabelMarginLoss,
+        "HuberLoss": nn.HuberLoss,
+        "SmoothL1Loss": nn.SmoothL1Loss,
+        "SoftMarginLoss": nn.SoftMarginLoss,
+        "MultiLabelSoftMarginLoss": nn.MultiLabelSoftMarginLoss,
+        "CosineEmbeddingLoss": nn.CosineEmbeddingLoss,
+        "MultiMarginLoss": nn.MultiMarginLoss,
+        "TripletMarginLoss": nn.TripletMarginLoss,
+        "TripletMarginWithDistanceLoss": nn.TripletMarginWithDistanceLoss,
+    }
+    if name in criterion:
+        return criterion[name]
+    raise ValueError(f"Unknown criterion: {name}")
+
+
+def create_optimiser(name, parameters, learningRate, decay):
+    """Factory function to create optimizer - creates on demand"""
+    if name == "Adadelta":
+        return optim.Adadelta(parameters, lr=learningRate, weight_decay=decay)
+    if name == "Adafactor":
+        return optim.Adafactor(parameters, lr=learningRate, weight_decay=decay)
+    if name == "Adagrad":
+        return optim.Adagrad(parameters, lr=learningRate, weight_decay=decay)
+    if name == "Adam":
+        return optim.Adam(parameters, lr=learningRate, weight_decay=decay)
+    if name == "AdamW":
+        return optim.AdamW(parameters, lr=learningRate, weight_decay=decay)
+    if name == "SparseAdam":
+        return optim.SparseAdam(parameters, lr=learningRate, weight_decay=decay)
+    if name == "Adamax":
+        return optim.Adamax(parameters, lr=learningRate, weight_decay=decay)
+    if name == "ASGD":
+        return optim.ASGD(parameters, lr=learningRate, weight_decay=decay)
+    if name == "LBFGS":
+        return optim.LBFGS(parameters, lr=learningRate, weight_decay=decay)
+    if name == "NAdam":
+        return optim.NAdam(parameters, lr=learningRate, weight_decay=decay)
+    if name == "RAdam":
+        return optim.RAdam(parameters, lr=learningRate, weight_decay=decay)
+    if name == "RMSprop":
+        return optim.RMSprop(parameters, lr=learningRate, weight_decay=decay)
+    if name == "Rprop":
+        return optim.Rprop(parameters, lr=learningRate, weight_decay=decay)
+    if name == "SGD":
+        return optim.SGD(parameters, lr=learningRate, weight_decay=decay, momentum=0.9)
+    raise ValueError(f"Unknown optimizer: {name}")
+
+
+def create_scheduler(name, optimizer, doScheduler):
+    """Factory function to create scheduler - creates on demand"""
+    if not doScheduler:
+        return None
+
+    if name == "LRScheduler":
+        return optim.lr_scheduler.LRScheduler(optimizer)
+    if name == "MultiplicativeLR":
+        return optim.lr_scheduler.MultiplicativeLR(optimizer),
+    if name == "StepLR":
+        return optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+    if name == "ConstantLR":
+        return optim.lr_scheduler.ConstantLR(optimizer, factor=0.5)
+    if name == "LinearLR":
+        return optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5)
+    if name == "ExponentialLR":
+        return optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+    if name == "PolynomialLR":
+        return optim.lr_scheduler.PolynomialLR(optimizer, power=3)
+    if name == "CosineAnnealingLR":
+        return optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
+    if name == "ReduceLROnPlateau":
+        return optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+    if name == "CosineAnnealingWarmRestarts":
+        return optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50)
+    raise ValueError(f"Unknown scheduler: {name}")
 
 
 def get_tensor_size(viewDistance):
@@ -130,7 +223,6 @@ class Pipeline(nn.Module):
         model,
         criterion,
         optimizer,
-        doScheduler,
         scheduler,
         validSplit,
         patienceLimit=15
@@ -154,12 +246,9 @@ class Pipeline(nn.Module):
             self.dataset, [trainSize, validSize]
         )
 
-        self.criterion = criterion
+        self.criterion = criterion()
         self.optimizer = optimizer
-        if doScheduler:
-            self.scheduler = scheduler
-        else:
-            self.scheduler = None
+        self.scheduler = scheduler
 
         self.bestLoss = float('inf')
         self.bestAcc = 0
@@ -272,12 +361,13 @@ class Pipeline(nn.Module):
                     self.bestAcc = acc
                     self.patienceCount = 0
                     if save:
-                        torch.save(self.model.state_dict(), f"models/pacman_model_V{version}-{epochsNum}.pth")
+                        torch.save(self.model.state_dict(), f"models/pacman_model_V{version}.pth")
                         print("Model saved !")
                 else:
                     self.patienceCount += 1
                     if self.patienceCount >= self.patienceLimit:
                         print(f"Early stopping at epoch {epoch + 1}")
+                        break
             else:
                 if abs(lossPrev - trainLossAvg) < precision:
                     print(f"Early stopping at epoch {epoch + 1}")
@@ -295,8 +385,164 @@ class Pipeline(nn.Module):
         return [lossPrev, accPrev] if precisionBest == 0 else [self.bestLoss, self.bestAcc]
 
 
+def search_training(path, numTrials=100, resultsFile="training_results.json"):
+    results = []
+    failed = []
+    ver = 1
+
+    for trial in range(numTrials):
+        print()
+        print(f"{'='*60}")
+        print(f"Trial {trial + 1}/{numTrials}")
+        print(f"{'='*60}")
+
+        version = f"{ver}.{trial}"
+
+        config = config = {
+            'dataset': {
+                'doNormalPos': random.choice(PARAMETERS['dataset']['doNormalPos']),
+                'viewDistance': random.choice(PARAMETERS['dataset']['viewDistance']),
+            },
+            'network': {
+                'layersNum': random.choice(PARAMETERS['network']['layersNum']),
+                'layer1SizeMultiplier': random.choice(PARAMETERS['network']['layer1SizeMultiplier']),
+                'layerSizeFun': random.choice(PARAMETERS['network']['layerSizeFun']),
+                'layerFun': random.choice(PARAMETERS['network']['layerFun']),
+                'doNormal': random.choice(PARAMETERS['network']['doNormal']),
+                'normalFun': random.choice(PARAMETERS['network']['normalFun']),
+                'action': random.choice(PARAMETERS['network']['action']),
+                'doDropout': random.choice(PARAMETERS['network']['doDropout']),
+                'dropoutRate': random.choice(PARAMETERS['network']['dropoutRate']),
+            },
+            'training': {
+                'learningRate': random.choice(PARAMETERS['training']['learningRate']),
+                'criterion': random.choice(PARAMETERS['training']['criterion']),
+                'optimizer': random.choice(PARAMETERS['training']['optimizer']),
+                'weightDecay': random.choice(PARAMETERS['training']['weightDecay']),
+                'doScheduler': random.choice(PARAMETERS['training']['doScheduler']),
+                'schedulerType': random.choice(PARAMETERS['training']['schedulerType']),
+                'validSplit': random.choice(PARAMETERS['training']['validSplit']),
+                'precision': random.choice(PARAMETERS['training']['precision']),
+                'precisionBest': random.choice(PARAMETERS['training']['precisionBest']),
+                'patienceLimit': random.choice(PARAMETERS['training']['patienceLimit']),
+                'epochsNum': random.choice(PARAMETERS['training']['epochsNum']),
+                'batchSize': random.choice(PARAMETERS['training']['batchSize']),
+            },
+            'trial_id': trial,
+        }
+
+        print(f"Configuration: {json.dumps(config, indent=2)}")
+
+        try:
+            dataset = PacmanDataset(
+                path,
+                doNormalPos=config['dataset']['doNormalPos'],
+                viewDistance=config['dataset']['viewDistance'],
+            )
+
+            inputSize = get_tensor_size(config['dataset']['viewDistance'])
+            layer1Size = int(inputSize * config['network']['layer1SizeMultiplier'])
+
+            model = PacmanNetwork(
+                inputSize=inputSize,
+                outputSize=5,
+                layersNum=config['network']['layersNum'],
+                layer1Size=layer1Size,
+                layer_size_fun=get_layer_size_fun(config['network']['layerSizeFun']),
+                layer_fun=get_layer_fun(config['network']['layerFun']),
+                doNormal=config['network']['doNormal'],
+                normal_fun=get_normal_fun(config['network']['normalFun']),
+                action=get_action(config['network']['action']),
+                doDropout=config['network']['doDropout'],
+                dropoutRate=config['network']['dropoutRate'],
+            ).to(DEVICE)
+
+            criterion = create_criterion(config['training']['criterion'])
+            optimizer = create_optimiser(
+                config['training']['optimizer'],
+                model.parameters(),
+                config['training']['learningRate'],
+                config['training']['weightDecay']
+            )
+            scheduler = create_scheduler(
+                config['training']['schedulerType'],
+                optimizer,
+                config['training']['doScheduler']
+            )
+
+            pipeline = Pipeline(
+                path=path,
+                dataset=dataset,
+                model=model,
+                criterion=criterion,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                validSplit=config['training']['validSplit'],
+                patienceLimit=config['training']['patienceLimit']
+            )
+
+            bestLoss, bestAcc = pipeline.train(
+                epochsNum=config['training']['epochsNum'],
+                batchSize=config['training']['batchSize'],
+                precision=config['training']['precision'],
+                precisionBest=config['training']['precisionBest'],
+                version=version
+            )
+
+            result = {
+                **config,
+                'performance': {
+                    'loss': float(bestLoss),
+                    'accuracy': float(bestAcc),
+                },
+                'status': 'success'
+            }
+            results.append(result)
+
+            print(f"SUCCESS - Loss: {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
+
+            with open(f"models/pacman_model_V{version}.json", "w") as f:
+                json.dump(result, f, indent=2)
+
+        except Exception as e:
+            error = {
+                'trial_id': trial,
+                'config': config,
+                'error': str(e),
+                'traceback': traceback.format_exc(),
+                'status': 'failed',
+            }
+            failed.append(error)
+
+            print(f"FAILED - Trial {trial}")
+            print(f"Error: {str(e)}")
+
+        finally:
+            with open(resultsFile, "w") as f:
+                json.dump({
+                    'results': results,
+                    'failed': failed,
+                    'completed_trials': trial + 1,
+                    'total_trials': numTrials
+                }, f, indent=2)
+
+            if USE_CUDA:
+                torch.cuda.empty_cache()
+
+    print(f"\n{'='*60}")
+    print("Training Complete!")
+    print(f"  Successful trials: {len(results)}/{numTrials}")
+    print(f"  Failed trials: {len(failed)}/{numTrials}")
+    print(f"{'='*60}")
+
+    return results, failed
+
+
 if __name__ == "__main__":
     import json
+
+    torch.manual_seed(42)
+    random.seed(42)
 
     path = "datasets/pacman_dataset.pkl"
     testNum = 10
@@ -305,269 +551,14 @@ if __name__ == "__main__":
     bestAcc = 0
     bestAccModel = ""
 
-    try:
-        # Dataset
-        allDoNormalPos = [True, False]
-        for d1 in range(len(allDoNormalPos)):
-            doNormalPos = allDoNormalPos[d1]
-            for d2 in range(1, 10 + 1):
-                viewDistance = d2
-                dataset = PacmanDataset(
-                    path,
-                    doNormalPos=doNormalPos,
-                    viewDistance=viewDistance
-                )
+    results, failed = search_training(path, numTrials=1)
 
-                # Neural Network
-                inputSize = get_tensor_size(viewDistance)
-                outputSize = 5
-                for n1 in range(1, 10 + 1):
-                    layersNum = n1
-                    for n2 in range(100, 1000 + 1):
-                        layer1Size = inputSize * n2 // 100
-                        allLayerSizeFunName = [
-                            "two_thirds",
-                            "half",
-                            "diamond",
-                            "linear"
-                        ]
-                        for n3 in range(len(allLayerSizeFunName)):
-                            layerSizeFunName = allLayerSizeFunName[n3]
-                            layer_size_fun = get_layer_size_fun(layerSizeFunName)
-                            allLayerFunName = [
-                                "Linear",
-                            ]
-                            for n4 in range(len(allLayerFunName)):
-                                layerFunName = allLayerFunName[n4]
-                                layer_fun = get_layer_fun(layerFunName)
-                                allDoNormalNet = [True, False]
-                                for n5 in range(len(allDoNormalNet)):
-                                    doNormalNet = allDoNormalNet[n5]
-                                    if doNormalNet:
-                                        allNormalFunName = [
-                                            "BatchNorm1d",
-                                            "BatchNorm2d",
-                                            "BatchNorm3d",
-                                            "GroupNorm",
-                                            "SyncBatchNorm",
-                                            "InstanceNorm1d",
-                                            "InstanceNorm2d",
-                                            "InstanceNorm3d",
-                                            "LayerNorm",
-                                            "LocalResponseNorm",
-                                            "RMSNorm",
-                                        ]
-                                    else:
-                                        allNormalFunName = ["BatchNorm1d"]
-                                    for n6 in range(len(allNormalFunName)):
-                                        normalFunName = allNormalFunName[n6]
-                                        normal_fun = get_normal_fun(normalFunName)
-                                        allActionName = [
-                                            "ELU",
-                                            "Hardshrink",
-                                            "Hardsigmoid",
-                                            "Hardtanh",
-                                            "Hardswish",
-                                            "LeakyReLU",
-                                            "LogSigmoid",
-                                            "PReLU",
-                                            "ReLU",
-                                            "ReLU6",
-                                            "RReLU",
-                                            "SELU",
-                                            "CELU",
-                                            "GELU",
-                                            "Sigmoid",
-                                            "SiLU",
-                                            "Mish",
-                                            "Sofplus",
-                                            "Softshrink",
-                                            "Softsign",
-                                            "Tanh",
-                                            "Tanhshrink",
-                                            "GLU",
-                                            "Softmin",
-                                            "Softmax",
-                                            "Softmax2d",
-                                            "LogSoftmax",
-                                        ]
-                                        for n7 in range(len(allActionName)):
-                                            actionName = allActionName[n7]
-                                            action = get_action(actionName)
-                                            allDoDropout = [True, False]
-                                            for n8 in range(len(allDoDropout)):
-                                                doDropout = allDoDropout[n8]
-                                                if doDropout:
-                                                    rangeDropoutRate = 99
-                                                else:
-                                                    rangeDropoutRate = 0
-                                                for n9 in range(rangeDropoutRate + 1):
-                                                    dropoutRate = n9 / 100
-                                                    model = PacmanNetwork(
-                                                        inputSize,
-                                                        outputSize,
-                                                        layersNum,
-                                                        layer1Size,
-                                                        layer_size_fun,
-                                                        layer_fun,
-                                                        doNormalNet,
-                                                        normal_fun,
-                                                        action,
-                                                        doDropout,
-                                                        dropoutRate
-                                                    ).to(DEVICE)
+    if results:
+        best_by_acc = max(results, key=lambda x: x['performance']['accuracy'])
+        best_by_loss = min(results, key=lambda x: x['performance']['loss'])
 
-                                                    # Training model
-                                                    for p1 in range(1, 100 + 1):
-                                                        learningRate = p1 / 10000
-                                                        allCriterion = [
-                                                            nn.L1Loss(),
-                                                            nn.MSELoss(),
-                                                            nn.CrossEntropyLoss(),
-                                                            nn.CTCLoss(),
-                                                            nn.NLLLoss(),
-                                                            nn.PoissonNLLLoss(),
-                                                            nn.GaussianNLLLoss(),
-                                                            nn.KLDivLoss(),
-                                                            nn.BCELoss(),
-                                                            nn.BCEWithLogitsLoss(),
-                                                            nn.MarginRankingLoss(),
-                                                            nn.HingeEmbeddingLoss(),
-                                                            nn.MultiLabelMarginLoss(),
-                                                            nn.HuberLoss(),
-                                                            nn.SmoothL1Loss(),
-                                                            nn.SoftMarginLoss(),
-                                                            nn.MultiLabelSoftMarginLoss(),
-                                                            nn.CosineEmbeddingLoss(),
-                                                            nn.MultiMarginLoss(),
-                                                            nn.TripletMarginLoss(),
-                                                            nn.TripletMarginWithDistanceLoss(),
-                                                        ]
-                                                        for p2 in range(len(allCriterion)):
-                                                            criterion = allCriterion[p2]
-                                                            allOptimizer = []
-                                                            allOptimizer.extend([optim.Adadelta(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.Adafactor(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.Adagrad(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.Adam(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.AdamW(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.SparseAdam(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.Adamax(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.ASGD(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.LBFGS(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.NAdam(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.RAdam(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.RMSprop(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend([optim.Rprop(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
-                                                            allOptimizer.extend(([optim.SGD(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)]))
-                                                            for p3 in range(len(allOptimizer)):
-                                                                optimizer = allOptimizer[p3]
-                                                                allDoScheduler = [True, False]
-                                                                for p4 in range(len(allDoScheduler)):
-                                                                    doScheduler = allDoScheduler[p4]
-                                                                    if doScheduler:
-                                                                        allScheduler = []
-                                                                        allScheduler.extend([optim.lr_scheduler.LRScheduler(optimizer)])
-                                                                        allScheduler.extend([optim.lr_scheduler.MultiplicativeLR(optimizer)])
-                                                                        allScheduler.extend([optim.lr_scheduler.StepLR(optimizer, step) for step in range(10)])
-                                                                        allScheduler.extend([optim.lr_scheduler.ConstantLR(optimizer, factor=factor / 10) for factor in range(10)])
-                                                                        allScheduler.extend([optim.lr_scheduler.LinearLR(optimizer, start_factor=factor / 10) for factor in range(10)])
-                                                                        allScheduler.extend([optim.lr_scheduler.ExponentialLR(optimizer, gamma / 10) for gamma in range(10)])
-                                                                        allScheduler.extend([optim.lr_scheduler.PolynomialLR(optimizer, power=power) for power in range(5)])
-                                                                        allScheduler.extend([optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max) for T_max in range(10)])
-                                                                        allScheduler.extend([optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor / 10, patience=patience) for factor in range(10) for patience in range(10)])
-                                                                        allScheduler.extend([optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0) for T_0 in range(10)])
-                                                                    else:
-                                                                        allScheduler = [optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)]
-                                                                    for p5 in range(len(allScheduler)):
-                                                                        scheduler = allScheduler[p5]
-                                                                        for p6 in range(9 + 1):
-                                                                            validSplit = p6 / 10
-                                                                            allPrecisionBest = [0, 1, 2]
-                                                                            for p7 in range(len(allPrecisionBest)):
-                                                                                precisionBest = allPrecisionBest[p7]
-                                                                                if precisionBest:
-                                                                                    rangePatienceLimit = 100
-                                                                                else:
-                                                                                    rangePatienceLimit = 0
-                                                                                for p8 in range(0, rangePatienceLimit + 1, 10):
-                                                                                    patienceLimit = p8
-                                                                                    pipeline = Pipeline(
-                                                                                        path,
-                                                                                        dataset,
-                                                                                        model,
-                                                                                        criterion,
-                                                                                        optimizer,
-                                                                                        doScheduler,
-                                                                                        scheduler,
-                                                                                        validSplit,
-                                                                                        patienceLimit=patienceLimit
-                                                                                    )
+        print(f"\nBest by Accuracy: {best_by_acc['performance']['accuracy']:.2f}%")
+        print(f"Config: {json.dumps(best_by_acc, indent=2)}")
 
-                                                                                    # Training
-                                                                                    for t1 in range(0, 1000 + 1, 5):
-                                                                                        if t1 == 0:
-                                                                                            continue
-                                                                                        epochsNum = t1
-                                                                                        for t2 in range(15 + 1):
-                                                                                            batchSize = 2**t2
-                                                                                            for t3 in range(10):
-                                                                                                precision = t3 / 1000000
-                                                                                                for test in range(testNum + 1):
-                                                                                                    version = f"{d1}.{d2}-{n1}.{n2}.{n3}.{n4}.{n5}.{n6}.{n7}.{n8}.{n9}-{p1}.{p2}.{p3}.{p4}.{p5}.{p6}.{p7}.{p8}-{t1}.{t2}.{t3}-{test}"
-                                                                                                    save = True
-
-                                                                                                    curLoss, curAcc = pipeline.train(
-                                                                                                        epochsNum,
-                                                                                                        batchSize,
-                                                                                                        precision=precision,
-                                                                                                        precisionBest=precisionBest,
-                                                                                                        version=version,
-                                                                                                        save=save
-                                                                                                    )
-
-                                                                                                    if curLoss < bestLoss:
-                                                                                                        bestLossModel = version
-                                                                                                        print()
-                                                                                                        print(f"---New best loss model ({bestLoss:.4f} -> {curLoss:.4f}): {bestLossModel}")
-                                                                                                        print()
-                                                                                                        bestLoss = curLoss
-
-                                                                                                    if curAcc > bestAcc:
-                                                                                                        bestAccModel = version
-                                                                                                        print()
-                                                                                                        print(f"---New best accuracy model ({bestAcc:.2f}% -> {curAcc:.2f}%): {bestAccModel}")
-                                                                                                        print()
-                                                                                                        bestAcc = curAcc
-
-                                                                                                    if save:
-                                                                                                        dict = {
-                                                                                                            'dataset': {
-                                                                                                                'doNormalPos': doNormalPos,
-                                                                                                                'viewDistance': viewDistance,
-                                                                                                            },
-                                                                                                            'network': {
-                                                                                                                'inputSize': inputSize,
-                                                                                                                'outputSize': outputSize,
-                                                                                                                'layersNum': layersNum,
-                                                                                                                'layer1Size': layer1Size,
-                                                                                                                'layerSizeFunName': layerSizeFunName,
-                                                                                                                'layerFunName': layerFunName,
-                                                                                                                'doNormal': doNormalNet,
-                                                                                                                'normalFunName': normalFunName,
-                                                                                                                'actionName': actionName,
-                                                                                                                'doDropout': doDropout,
-                                                                                                                'dropoutRate': dropoutRate,
-                                                                                                            },
-                                                                                                            'performance': {
-                                                                                                                'loss': curLoss,
-                                                                                                                'accuracy': curAcc,
-                                                                                                            },
-                                                                                                        }
-
-                                                                                                        print("Writing model config...")
-                                                                                                        with open(f"models/pacman_model_V{version}.json", "w") as file:
-                                                                                                            json.dump(dict, file)
-                                                                                                        print("Finished writing model config...")
-    except:
-        print()
+        print(f"\nBest by Loss: {best_by_loss['performance']['loss']:.4f}")
+        print(f"Config: {json.dumps(best_by_loss, indent=2)}")
