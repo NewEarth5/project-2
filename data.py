@@ -22,7 +22,8 @@ DIRECTION_MAPPING = {
     Directions.STOP: [0, 0, 0, 0]
 }
 
-TENSOR_SIZE = 24
+N = 3
+TENSOR_SIZE = 2 + 2 + (2 * N * (N + 1)) + (2 * N * (N + 1)) + 4  # 32
 
 
 def position_normalize(position, walls):
@@ -30,6 +31,25 @@ def position_normalize(position, walls):
     max_y = walls.height - 1
     max_pos = np.array((max_x, max_y))
     return position / max_pos
+
+
+def diamond_indexes(n):
+    """
+    Indexes to access a 2D array in a diamond pattern of size n.
+    """
+    output = []
+
+    for r in range(n):
+        for c in range(1, n - r + 1):
+            output.append((r, c))
+            output.append((c, -r))
+            output.append((-r, -c))
+            output.append((-c, r))
+    return output
+
+
+def is_outbounds(x, y, walls):
+    return (x > walls.width - 1 or x < 0 or y > walls.height - 1 or y < 0)
 
 
 def state_to_tensor(state):
@@ -43,67 +63,59 @@ def state_to_tensor(state):
     Arguments:
         state: a GameState object
     """
-    pacmanState = state.getPacmanState()
+    features = []
 
+    diamondInd = diamond_indexes(N)
+
+    pacmanState = state.getPacmanState()
     walls = state.getWalls()
     food = state.getFood()
 
     pacmanPos = np.array(state.getPacmanPosition())
     pacmanPosNorm = position_normalize(pacmanPos, walls)
 
+    features.extend([
+        pacmanPosNorm[0],    # Pacman's normalized x position
+        pacmanPosNorm[1],    # Pacman's normalized y position
+    ])
+
     ghostsPos = np.array(state.getGhostPositions())
     ghostCloInd = np.argmin(sum(abs(ghostsPos - pacmanPos).T))
     ghostCloPos = ghostsPos[ghostCloInd]
     ghostCloPosNorm = position_normalize(ghostCloPos, walls)
 
-    wallNN = float(walls[pacmanPos[0] + 0][pacmanPos[1] + 1])
-    wallNE = float(walls[pacmanPos[0] + 1][pacmanPos[1] + 1])
-    wallEE = float(walls[pacmanPos[0] + 1][pacmanPos[1] + 0])
-    wallSE = float(walls[pacmanPos[0] + 1][pacmanPos[1] - 1])
-    wallSS = float(walls[pacmanPos[0] + 0][pacmanPos[1] - 1])
-    wallSW = float(walls[pacmanPos[0] - 1][pacmanPos[1] - 1])
-    wallWW = float(walls[pacmanPos[0] - 1][pacmanPos[1] + 0])
-    wallNW = float(walls[pacmanPos[0] - 1][pacmanPos[1] + 1])
+    features.extend([
+        ghostCloPosNorm[0],  # Closest Ghost's normalized x position
+        ghostCloPosNorm[1],  # Closest Ghost's normalized y position
+    ])
 
-    foodNN = float(food[pacmanPos[0] + 0][pacmanPos[1] + 1])
-    foodNE = float(food[pacmanPos[0] + 1][pacmanPos[1] + 1])
-    foodEE = float(food[pacmanPos[0] + 1][pacmanPos[1] + 0])
-    foodSE = float(food[pacmanPos[0] + 1][pacmanPos[1] - 1])
-    foodSS = float(food[pacmanPos[0] + 0][pacmanPos[1] - 1])
-    foodSW = float(food[pacmanPos[0] - 1][pacmanPos[1] - 1])
-    foodWW = float(food[pacmanPos[0] - 1][pacmanPos[1] + 0])
-    foodNW = float(food[pacmanPos[0] - 1][pacmanPos[1] + 1])
+    for i, j in diamondInd:
+        x = pacmanPos[0] + i
+        y = pacmanPos[1] + j
+        if is_outbounds(x, y, walls):
+            features.append(float(False))
+        else:
+            features.append(float(walls[x][y]))
+
+    for i, j in diamondInd:
+        x = pacmanPos[0] + i
+        y = pacmanPos[1] + j
+        if is_outbounds(x, y, walls):
+            features.append(float(False))
+        else:
+            features.append(float(food[x][y]))
 
     currentDir = pacmanState.configuration.direction
     currentDirVec = DIRECTION_MAPPING[currentDir]
 
-    tensor = torch.tensor([
-        pacmanPosNorm[0],    # Pacman's normalized x position
-        pacmanPosNorm[1],    # Pacman's normalized y position
-        ghostCloPosNorm[0],  # Closest Ghost's normalized x position
-        ghostCloPosNorm[1],  # Closest Ghost's normalized y position
-        wallNN,              # Whether there is a wall north
-        wallNE,              # Whether there is a wall north east
-        wallEE,              # Whether there is a wall east
-        wallSE,              # Whether there is a wall south east
-        wallSS,              # Whether there is a wall south
-        wallSW,              # Whether there is a wall south west
-        wallWW,              # Whether there is a wall west
-        wallNW,              # Whether there is a wall north west
-        foodNN,              # Whether there is food north
-        foodNE,              # Whether there is food north east
-        foodEE,              # Whether there is food east
-        foodSE,              # Whether there is food south east
-        foodSS,              # Whether there is food south
-        foodSW,              # Whether there is food south west
-        foodWW,              # Whether there is food west
-        foodNW,              # Whether there is food north west
+    features.extend([
         currentDirVec[0],    # Whether pacman is moving north
         currentDirVec[1],    # Whether pacman is moving east
         currentDirVec[2],    # Whether pacman is moving south
         currentDirVec[3],    # Whether pacman is moving west
-    ], dtype=torch.float32)
-    return tensor
+    ])
+
+    return torch.tensor(features, dtype=torch.float32)
 
 
 class PacmanDataset(Dataset):
