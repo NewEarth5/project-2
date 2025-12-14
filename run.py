@@ -105,6 +105,6 @@ def run(folder, version):
 
 
 if __name__ == "__main__":
-    folder = 8
-    version = get_best(folder, index=5)
+    folder = 9
+    version = get_best(folder, index=0)
     run(folder, version)

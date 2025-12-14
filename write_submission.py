@@ -1,3 +1,5 @@
+import shutil
+
 import pickle
 import torch
 import pandas as pd
@@ -57,7 +59,7 @@ class SubmissionWriter:
 
 
 if __name__ == "__main__":
-    folder = 6
+    folder = 8
     version = get_best(folder, index=0)
     modelPath = f"models/{folder}/pacman_model_V{version}"
     writer = SubmissionWriter(
@@ -67,3 +69,4 @@ if __name__ == "__main__":
     )
     predictions = writer.predict_on_testset()
     writer.write_csv(predictions)
+    shutil.copy(f"{modelPath}.pth", "pacman_model.pth")
