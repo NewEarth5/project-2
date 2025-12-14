@@ -19,7 +19,7 @@ def get_config(folder, version):
 
     print(f"{'=' * 60}")
     print(f"Best model from folder {folder}:")
-    print(f"  Model {config['trial_id']}")
+    print(f"  Model {config['trial_id'] + 1}")
     print(f"  - Loss of {config['performance']['loss']:.4f}")
     print(f"  - Accuracy of {config['performance']['accuracy']:.2f}%")
     print(f"{'=' * 60}")
@@ -100,6 +100,6 @@ def run(folder, version):
 
 
 if __name__ == "__main__":
-    folder = 6
+    folder = 7
     version = get_best(folder, index=0)
     run(folder, version)
