@@ -59,7 +59,7 @@ class Pipeline(nn.Module):
             self.optimizer, mode='min', factor=0.5, patience=5
         )
 
-    def train(self, version=1, epochsNum=100, precision=0):
+    def train(self, version=1, epochsNum=500, precision=0):
         print("Beginning of the training of your network...")
         print(f"Device used: {next(self.model.parameters()).device}")
 
@@ -93,13 +93,12 @@ class Pipeline(nn.Module):
 
             for batchInputs, batchActions in trainLoader:
                 batchInputs = batchInputs.to(DEVICE, non_blocking=USE_CUDA)
-                # batchActionsInd = actions_convert(batchActions).to(DEVICE, non_blocking=USE_CUDA)
-                batchActionsInd = batchActions.to(DEVICE, non_blocking=USE_CUDA)
+                batchActions = batchActions.to(DEVICE, non_blocking=USE_CUDA)
 
                 self.optimizer.zero_grad(set_to_none=True)
                 with torch.amp.autocast(device_type="cuda", enabled=USE_CUDA):
                     batchOutputs = self.model(batchInputs)
-                    batchLoss = self.criterion(batchOutputs, batchActionsInd)
+                    batchLoss = self.criterion(batchOutputs, batchActions)
 
                 SCALER.scale(batchLoss).backward()
                 SCALER.unscale_(self.optimizer)
@@ -107,21 +106,15 @@ class Pipeline(nn.Module):
                 SCALER.step(self.optimizer)
                 SCALER.update()
 
-                # batchOutputs = self.model(batchInputs)
-                # batchLoss = self.criterion(batchOutputs, batchActionsInd)
-                # batchLoss.backward()
-                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                # self.optimizer.step()
-
                 trainLossTot += batchLoss.item()
                 _, predicted = batchOutputs.max(1)
-                trainTot += batchActionsInd.size(0)
-                trainCor += predicted.eq(batchActionsInd).sum().item()
+                trainTot += batchActions.size(0)
+                trainCor += predicted.eq(batchActions).sum().item()
 
             trainLossAvg = trainLossTot / len(trainLoader)
             trainAcc = 100. * trainCor / trainTot
 
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % 50 == 0:
                 print(f"Epoch [{epoch + 1}/{epochsNum}]")
                 print(f"  Train Loss: {trainLossAvg:.4f}, Train Acc: {trainAcc:.5f}%")
 
@@ -134,24 +127,23 @@ class Pipeline(nn.Module):
                 with torch.no_grad():
                     for batchInputs, batchActions in validLoader:
                         batchInputs = batchInputs.to(DEVICE, non_blocking=USE_CUDA)
-                        # batchActionsInd = actions_convert(batchActions).to(DEVICE, non_blocking=USE_CUDA)
-                        batchActionsInd = batchActions.to(DEVICE, non_blocking=USE_CUDA)
+                        batchActions = batchActions.to(DEVICE, non_blocking=USE_CUDA)
 
                         with torch.amp.autocast(device_type="cuda", enabled=USE_CUDA):
                             batchOutputs = self.model(batchInputs)
-                            batchLoss = self.criterion(batchOutputs, batchActionsInd)
+                            batchLoss = self.criterion(batchOutputs, batchActions)
 
                         validLossTot += batchLoss.item()
                         _, predicted = batchOutputs.max(1)
-                        validTot += batchActionsInd.size(0)
-                        validCor += predicted.eq(batchActionsInd).sum().item()
+                        validTot += batchActions.size(0)
+                        validCor += predicted.eq(batchActions).sum().item()
 
                 validLossAvg = validLossTot / len(validLoader)
                 validAcc = 100. * validCor / validTot
 
                 self.scheduler.step(validLossAvg)
 
-                if (epoch + 1) % 10 == 0:
+                if (epoch + 1) % 50 == 0:
                     print(f"  Valid Loss: {validLossAvg:.4f}, Valid Acc: {validAcc:.5f}%")
 
                 if abs(lossPrev - validLossAvg) < precision:
@@ -171,6 +163,7 @@ class Pipeline(nn.Module):
         if (self.save):
             torch.save(self.model.state_dict(), f"models/pacman_model_V{VERSION}-{epochsNum}.pth")
             print("Model saved !")
+
         print("Finished training your network model...")
 
 
