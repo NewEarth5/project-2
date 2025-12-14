@@ -10,7 +10,7 @@ from pacman_module.ghostAgents import SmartyGhost
 
 from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
-from train import get_layer_size_fun, get_action, get_layer_fun, get_normal_fun, get_tensor_size, get_best
+from train import get_layer_size_fun, get_action, get_layer_fun, get_normal_fun, get_best
 
 
 def get_config(folder, version):
@@ -27,11 +27,21 @@ def get_config(folder, version):
     return config
 
 
-def get_PacmanNetwork(config):
-    inputSize = get_tensor_size(config['dataset']['viewDistance'])
-    outputSize = 5
+def get_PacmanNetwork(config, folder):
+    if folder < 7:
+        viewDistance = config['dataset']['viewDistance']
+        print(viewDistance)
+        if folder < 6:
+            inputSize = 8 + 4 * viewDistance * (viewDistance + 1)
+        else:
+            inputSize = 27 + 4 * viewDistance * (viewDistance + 1)
+        outputSize = 5
+        layer1Size = int(inputSize * config['network']['layer1SizeMultiplier'])
+    else:
+        inputSize = config['network']['inputSize']
+        outputSize = config['network']['outputSize']
+        layer1Size = config['network']['layer1Size']
     layersNum = config['network']['layersNum']
-    layer1Size = int(inputSize * config['network']['layer1SizeMultiplier'])
     layer_size_fun = get_layer_size_fun(config['network']['layerSizeFun'])
     layer_fun = get_layer_fun(config['network']['layerFun'])
     doNormal = config['network']['doNormal']
@@ -63,14 +73,14 @@ def get_PacmanAgent(model, config):
     return pacman_agent
 
 
-def run(folder=1, version=1):
+def run(folder, version):
     config = get_config(folder, version)
 
     SEED = 42
     random.seed(SEED)
     np.random.seed(SEED)
 
-    model = get_PacmanNetwork(config)
+    model = get_PacmanNetwork(config, folder)
     model.load_state_dict(torch.load(f"models/{folder}/pacman_model_V{version}.pth", map_location="cpu"))
     model.eval()
     pacman_agent = get_PacmanAgent(model, config)
@@ -90,6 +100,6 @@ def run(folder=1, version=1):
 
 
 if __name__ == "__main__":
-    folder = 5
+    folder = 6
     version = get_best(folder, index=0)
     run(folder, version)

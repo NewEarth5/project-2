@@ -47,3 +47,9 @@ class PacmanNetwork(nn.Module):
     def forward(self, x):
         x = self.flatten(x)
         return self.stack(x)
+
+
+if __name__ == "__main__":
+    from train import search_training
+
+    search_training("models", numTrials=1, save=False)

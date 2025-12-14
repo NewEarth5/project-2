@@ -11,74 +11,74 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from architecture import PacmanNetwork
-from data import PacmanDataset
+from data import PacmanDataset, get_tensor_size
 
 USE_CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if USE_CUDA else "cpu")
 SCALER = torch.amp.GradScaler(enabled=USE_CUDA)
 
-# PARAMETERS = {
-#     'dataset': {
-#         'doNormalPos': [True, False],
-#         'viewDistance': [4, 5, 6, 7],
-#     },
-#     'network': {
-#         'layersNum': [2, 3, 4, 5, 6, 7],
-#         'layer1SizeMultiplier': [1.0, 1.5, 2.0, 3.0, 5.0],
-#         'layerSizeFun': ['two_thirds', 'half', 'diamond', 'linear'],
-#         'layerFun': ['Linear'],
-#         'doNormal': [True, False],
-#         'normalFun': ['BatchNorm1d', 'InstanceNorm1d'],
-#         'action': ['LeakyReLU', 'GELU', 'SiLU'],
-#         'doDropout': [True],
-#         'dropoutRate': [0.1, 0.2, 0.3],
-#     },
-#     'training': {
-#         'learningRate': [0.0001, 0.0005, 0.001],
-#         'criterion': ['CrossEntropyLoss'],
-#         'optimizer': ['Adam', 'AdamW', 'RMSprop'],
-#         'weightDecay': [0.0, 0.1, 0.01, 0.001],
-#         'doScheduler': [True, False],
-#         'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR', 'StepLR'],
-#         'validSplit': [0.1, 0.2],
-#         'precision': [0.0000001, 0.0000005, 0.000001],
-#         'precisionBest': [0, 1, 2],
-#         'patienceLimit': [30, 40, 50],
-#         'epochsNum': [250, 500, 1000],
-#         'batchSize': [512],
-#     }
-# }
 PARAMETERS = {
     'dataset': {
         'doNormalPos': [False],
-        'viewDistance': [5],
+        'viewDistance': [4, 5, 6],
     },
     'network': {
-        'layersNum': [5],
-        'layer1SizeMultiplier': [5.0],
-        'layerSizeFun': ['diamond'],
+        'layersNum': [3, 4, 5, 6, 7],
+        'layer1SizeMultiplier': [1.5, 2.0, 3.0, 5.0],
+        'layerSizeFun': ['two_thirds', 'half', 'diamond', 'linear'],
         'layerFun': ['Linear'],
-        'doNormal': [False],
+        'doNormal': [True],
         'normalFun': ['BatchNorm1d'],
-        'action': ['LeakyReLU'],
+        'action': ['LeakyReLU', 'GELU', 'SiLU'],
         'doDropout': [True],
-        'dropoutRate': [0.3],
+        'dropoutRate': [0.1, 0.2, 0.3],
     },
     'training': {
-        'learningRate': [0.0005],
+        'learningRate': [0.0001, 0.0005],
         'criterion': ['CrossEntropyLoss'],
-        'optimizer': ['Adam'],
-        'weightDecay': [0.0],
-        'doScheduler': [True],
-        'schedulerType': ['StepLR'],
-        'validSplit': [0.1],
-        'precision': [0.000001],
-        'precisionBest': [2],
-        'patienceLimit': [30],
-        'epochsNum': [250],
+        'optimizer': ['Adam', 'AdamW'],
+        'weightDecay': [0.0, 0.1, 0.01, 0.001],
+        'doScheduler': [True, False],
+        'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR', 'StepLR'],
+        'validSplit': [0.2],
+        'precision': [0.0000001],
+        'precisionBest': [1, 2],
+        'patienceLimit': [25, 50, 75],
+        'epochsNum': [1000],
         'batchSize': [512],
     }
 }
+# PARAMETERS = {
+#     'dataset': {
+#         'doNormalPos': [False],
+#         'viewDistance': [5],
+#     },
+#     'network': {
+#         'layersNum': [5],
+#         'layer1SizeMultiplier': [5.0],
+#         'layerSizeFun': ['diamond'],
+#         'layerFun': ['Linear'],
+#         'doNormal': [False],
+#         'normalFun': ['BatchNorm1d'],
+#         'action': ['LeakyReLU'],
+#         'doDropout': [True],
+#         'dropoutRate': [0.3],
+#     },
+#     'training': {
+#         'learningRate': [0.0005],
+#         'criterion': ['CrossEntropyLoss'],
+#         'optimizer': ['Adam'],
+#         'weightDecay': [0.0],
+#         'doScheduler': [True],
+#         'schedulerType': ['StepLR'],
+#         'validSplit': [0.1],
+#         'precision': [0.000001],
+#         'precisionBest': [2],
+#         'patienceLimit': [30],
+#         'epochsNum': [250],
+#         'batchSize': [512],
+#     }
+# }
 
 
 def get_layer_size_fun(name):
@@ -241,10 +241,6 @@ def create_scheduler(name, optimizer, doScheduler):
     raise ValueError(f"Unknown scheduler: {name}")
 
 
-def get_tensor_size(viewDistance):
-    return 2 + 2 + (2 * viewDistance * (viewDistance + 1)) + (2 * viewDistance * (viewDistance + 1)) + 4
-
-
 class Pipeline(nn.Module):
     def __init__(
         self,
@@ -346,7 +342,7 @@ class Pipeline(nn.Module):
             trainLossAvg = trainLossTot / len(trainLoader)
             trainAcc = 100. * trainCor / trainTot
 
-            if (epoch + 1) % (epochsNum // 100) == 0:
+            if (epoch + 1) % 10 == 0:
                 print(f"Epoch [{epoch + 1}/{epochsNum}]")
                 print(f"  Train Loss: {trainLossAvg:.4f}, Train Acc: {trainAcc:.2f}%")
 
@@ -375,7 +371,7 @@ class Pipeline(nn.Module):
                 lossAvg = validLossAvg
                 acc = validAcc
 
-                if (epoch + 1) % (epochsNum // 100) == 0:
+                if (epoch + 1) % 10 == 0:
                     print(f"  Valid Loss: {validLossAvg:.4f}, Valid Acc: {validAcc:.2f}%")
             else:
                 lossAvg = trainLossAvg
@@ -417,7 +413,7 @@ class Pipeline(nn.Module):
         return [lossPrev, accPrev] if precisionBest == 0 else [self.bestLoss, self.bestAcc]
 
 
-def search_training(folderPath, numTrials=100, resultsFolder="models/"):
+def search_training(folderPath, numTrials=100, resultsFolder="models/", save=True):
     results = []
     failed = []
     files = os.listdir(folderPath)
@@ -426,7 +422,8 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/"):
         folder = 1
     else:
         folder = max(folders) + 1
-    os.makedirs(os.path.join(folderPath, str(folder)))
+    if save:
+        os.makedirs(os.path.join(folderPath, str(folder)))
 
     for trial in range(numTrials):
         print()
@@ -434,14 +431,21 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/"):
         print(f"Trial {trial + 1}/{numTrials}")
         print(f"{'='*60}")
 
+        viewDistance = random.choice(PARAMETERS['dataset']['viewDistance'])
+        inputSize = get_tensor_size(viewDistance)
+        layer1SizeMultiplier = random.choice(PARAMETERS['network']['layer1SizeMultiplier']),
+
         config = config = {
             'dataset': {
                 'doNormalPos': random.choice(PARAMETERS['dataset']['doNormalPos']),
-                'viewDistance': random.choice(PARAMETERS['dataset']['viewDistance']),
+                'viewDistance': viewDistance,
             },
             'network': {
+                'inputSize': inputSize,
+                'outputSize': 5,
                 'layersNum': random.choice(PARAMETERS['network']['layersNum']),
-                'layer1SizeMultiplier': random.choice(PARAMETERS['network']['layer1SizeMultiplier']),
+                'layer1Size': int(inputSize * layer1SizeMultiplier),
+                'layer1SizeMultiplier': layer1SizeMultiplier,
                 'layerSizeFun': random.choice(PARAMETERS['network']['layerSizeFun']),
                 'layerFun': random.choice(PARAMETERS['network']['layerFun']),
                 'doNormal': random.choice(PARAMETERS['network']['doNormal']),
@@ -476,14 +480,11 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/"):
                 config['dataset']['viewDistance'],
             )
 
-            inputSize = get_tensor_size(config['dataset']['viewDistance'])
-            layer1Size = int(inputSize * config['network']['layer1SizeMultiplier'])
-
             model = PacmanNetwork(
-                inputSize,
-                5,
+                config['network']['inputSize'],
+                config['network']['outputSize'],
                 config['network']['layersNum'],
-                layer1Size,
+                config['network']['layer1Size'],
                 get_layer_size_fun(config['network']['layerSizeFun']),
                 get_layer_fun(config['network']['layerFun']),
                 config['network']['doNormal'],
@@ -521,7 +522,8 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/"):
                 config['training']['epochsNum'],
                 config['training']['batchSize'],
                 config['training']['precision'],
-                config['training']['precisionBest']
+                config['training']['precisionBest'],
+                save=save
             )
 
             result = {
@@ -536,8 +538,9 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/"):
 
             print(f"SUCCESS - Loss: {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
 
-            with open(os.path.join(folderPath, str(folder), f"pacman_model_V{trial + 1}.json"), "w") as f:
-                json.dump(result, f, indent=2)
+            if save:
+                with open(os.path.join(folderPath, str(folder), f"pacman_model_V{trial + 1}.json"), "w") as f:
+                    json.dump(result, f, indent=2)
 
         except Exception as e:
             error = {
@@ -553,13 +556,14 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/"):
             print(f"Error: {str(e)}")
 
         finally:
-            with open(os.path.join(folderPath, f"training_results_V{folder}.json"), "w") as f:
-                json.dump({
-                    'results': results,
-                    'failed': failed,
-                    'completed_trials': trial + 1,
-                    'total_trials': numTrials
-                }, f, indent=2)
+            if save:
+                with open(os.path.join(folderPath, f"training_results_V{folder}.json"), "w") as f:
+                    json.dump({
+                        'results': results,
+                        'failed': failed,
+                        'completed_trials': trial + 1,
+                        'total_trials': numTrials
+                    }, f, indent=2)
 
             if USE_CUDA:
                 torch.cuda.empty_cache()
