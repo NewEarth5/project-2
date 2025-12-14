@@ -22,9 +22,6 @@ DIRECTION_MAPPING = {
     Directions.STOP: [0, 0, 0, 0]
 }
 
-N = 4
-TENSOR_SIZE = 2 + 2 + (2 * N * (N + 1)) + (2 * N * (N + 1)) + 4  # 88
-
 
 def position_normalize(position, walls, doNormalPos):
     if doNormalPos:
