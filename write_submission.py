@@ -2,8 +2,11 @@ import pickle
 import torch
 import pandas as pd
 
-from data import state_to_tensor
 from architecture import PacmanNetwork
+from pacmanagent import PacmanAgent
+from train import VERSION, EPOCHSNUM
+
+USEDVERSION = f"V{VERSION}-{EPOCHSNUM}"
 
 
 class SubmissionWriter:
@@ -24,18 +27,18 @@ class SubmissionWriter:
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         self.model.eval()
 
-
     def predict_on_testset(self):
         """
         Generate predictions for the test set.
 
-        !!! Your predicted actions should follow the same order
+        Your predicted actions should follow the same order
         as the test set provided.
         """
+        pacman = PacmanAgent(self.model)
         actions = []
         for state in self.test_set:
-            x = state_to_tensor(state).unsqueeze(0)
-            # Your code here
+            action = pacman.get_action(state)
+            actions.append(action)
         return actions
 
     def write_csv(self, actions, file_name="submission"):
@@ -59,7 +62,7 @@ class SubmissionWriter:
 if __name__ == "__main__":
     writer = SubmissionWriter(
         test_set_path="datasets/pacman_test.pkl",
-        model_path="models/pacman_model.pth"  # change if needed
+        model_path=f"models/pacman_model_{USEDVERSION}.pth"
     )
     predictions = writer.predict_on_testset()
     writer.write_csv(predictions)
