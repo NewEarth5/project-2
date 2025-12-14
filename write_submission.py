@@ -2,16 +2,11 @@ import pickle
 import torch
 import pandas as pd
 
-from architecture import PacmanNetwork
-from pacmanagent import PacmanAgent
-from train import VERSION, EPOCHSNUM
-
-USEDVERSION = f"V{VERSION}-{EPOCHSNUM}"
-# USEDVERSION = "V8.3-500"
+from run import get_config, get_best, get_PacmanNetwork, get_PacmanAgent
 
 
 class SubmissionWriter:
-    def __init__(self, test_set_path, model_path):
+    def __init__(self, test_set_path, folder, version):
         """
         Initialize the writing of your submission.
         Pay attention that the test set only contains GameState objects,
@@ -24,8 +19,10 @@ class SubmissionWriter:
         with open(test_set_path, "rb") as f:
             self.test_set = pickle.load(f)
 
-        self.model = PacmanNetwork()
-        self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
+        config = get_config(folder, version)
+        self.model = get_PacmanNetwork(config)
+        self.pacman = get_PacmanAgent(self.model, config)
+        self.model.load_state_dict(torch.load(f"models/{folder}/pacman_model_V{version}.pth", map_location="cpu"))
         self.model.eval()
 
     def predict_on_testset(self):
@@ -35,10 +32,9 @@ class SubmissionWriter:
         Your predicted actions should follow the same order
         as the test set provided.
         """
-        pacman = PacmanAgent(self.model)
         actions = []
         for state in self.test_set:
-            action = pacman.get_action(state)
+            action = self.pacman.get_action(state)
             actions.append(action)
         return actions
 
@@ -61,9 +57,13 @@ class SubmissionWriter:
 
 
 if __name__ == "__main__":
+    folder = 4
+    version = get_best(folder, index=1)
+    modelPath = f"models/{folder}/pacman_model_V{version}"
     writer = SubmissionWriter(
-        test_set_path="datasets/pacman_test.pkl",
-        model_path=f"models/pacman_model_{USEDVERSION}.pth"
+        "datasets/pacman_test.pkl",
+        folder,
+        version
     )
     predictions = writer.predict_on_testset()
     writer.write_csv(predictions)
