@@ -27,15 +27,20 @@ class PacmanAgent(Agent):
     def get_prediction(self, output, creativity=0, selectMax=None):
         prob = output[0].detach().cpu().numpy()
         best = np.argmax(prob)
+
         for i in range(len(prob)):
             prob[i] = max(0, prob[i])
+
         sort = np.argsort(prob)
+
         if selectMax is not None:
             for i in range(len(prob) - selectMax):
                 prob[sort[i]] = 0
+
         prob = prob / sum(prob)
         prob *= creativity
         prob[best] += 1 - creativity
+
         return choice(list(ACTION_INDEX.keys()), p=prob, size=1)[0]
 
     def get_action(self, state):
