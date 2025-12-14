@@ -190,7 +190,7 @@ def escape_routes(pacmanPos, walls, state):
                 y = pacmanPosNext[1] + dy
 
                 if not is_illegal(x, y, walls):
-                    routes += 1
+                    routes += 0.25
 
             output.append(routes)
         else:
@@ -266,10 +266,10 @@ def state_to_tensor(state, doNormalPos, viewDistance):
     currentDirVec = DIRECTION_MAPPING[currentDir]
 
     features.extend([
-        currentDirVec[0],    # Whether pacman is moving north
-        currentDirVec[1],    # Whether pacman is moving east
-        currentDirVec[2],    # Whether pacman is moving south
-        currentDirVec[3],    # Whether pacman is moving west
+        currentDirVec[0],
+        currentDirVec[1],
+        currentDirVec[2],
+        currentDirVec[3],
     ])
 
     for direction in count_direction(
@@ -317,7 +317,7 @@ def state_to_tensor(state, doNormalPos, viewDistance):
 
     foodDistClo, foodReachNum = distance_bfs(pacmanPos, foodPos, walls)
     features.extend([
-        foodDistClo if foodDistClo != np.inf else (walls.height + walls.width),
+        foodDistClo / (walls.height + walls.width) if foodDistClo != np.inf else 1,
         foodReachNum / foodNum,
     ])
 
