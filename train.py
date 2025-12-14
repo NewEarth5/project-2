@@ -20,66 +20,35 @@ SCALER = torch.amp.GradScaler(enabled=USE_CUDA)
 
 PARAM = {
     'dataset': {
-        'doNormalPos': [True],
-        'viewDistance': [4, 5, 6],
+        'doNormalPos': [False],
+        'viewDistance': [4, 4, 4, 5, 5],
     },
     'network': {
-        'layersNum': [3, 4, 5, 6, 7],
-        'layer1SizeMultiplier': [1.5, 2.0, 3.0, 5.0],
-        'layerSizeFun': ['two_thirds', 'half', 'diamond', 'linear'],
+        'layersNum': [4, 4, 4, 5, 7],
+        'layer1SizeMultiplier': [4, 4, 4, 5, 7],
+        'layerSizeFun': ["linear", "linear", "linear", "linear", "half"],
         'layerFun': ['Linear'],
         'doNormal': [True],
         'normalFun': ['BatchNorm1d'],
-        'action': ['LeakyReLU', 'GELU', 'SiLU'],
+        'action': ["GELU", "GELU", "SiLU", "SiLU", "SiLU"],
         'doDropout': [True],
-        'dropoutRate': [0.1, 0.2, 0.3],
+        'dropoutRate': [0.2, 0.2, 0.2, 0.2, 0.3],
     },
     'training': {
-        'learningRate': [0.0001, 0.0005],
+        'learningRate': [0.0005],
         'criterion': ['CrossEntropyLoss'],
-        'optimizer': ['Adam', 'AdamW'],
-        'weightDecay': [0.0, 0.1, 0.01, 0.001],
-        'doScheduler': [True, False],
-        'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR', 'StepLR'],
+        'optimizer': ["AdamW", "AdamW", "AdamW", "Adam", "Adam"],
+        'weightDecay': [0, 0, 0, 0.001, 0.001],
+        'doScheduler': [False],
+        'schedulerType': ["StepLR"],
         'validSplit': [0.2],
         'precision': [0.0000001],
-        'precisionBest': [1, 2],
-        'patienceLimit': [25, 50, 75],
+        'precisionBest': [2],
+        'patienceLimit': [50, 50, 50, 75, 75],
         'epochsNum': [1000],
         'batchSize': [512],
     }
 }
-# PARAM = {
-#     'dataset': {
-#         'doNormalPos': [False],
-#         'viewDistance': [4, 4, 4, 5, 5],
-#     },
-#     'network': {
-#         'layersNum': [4, 4, 4, 5, 7],
-#         'layer1SizeMultiplier': [4, 4, 4, 5, 7],
-#         'layerSizeFun': ["linear", "linear", "linear", "linear", "half"],
-#         'layerFun': ['Linear'],
-#         'doNormal': [True],
-#         'normalFun': ['BatchNorm1d'],
-#         'action': ["GELU", "GELU", "SiLU", "SiLU", "SiLU"],
-#         'doDropout': [True],
-#         'dropoutRate': [0.2, 0.2, 0.2, 0.2, 0.3],
-#     },
-#     'training': {
-#         'learningRate': [0.0005],
-#         'criterion': ['CrossEntropyLoss'],
-#         'optimizer': ["AdamW", "AdamW", "AdamW", "Adam", "Adam"],
-#         'weightDecay': [0, 0, 0, 0.001, 0.001],
-#         'doScheduler': [False],
-#         'schedulerType': ["StepLR"],
-#         'validSplit': [0.2],
-#         'precision': [0.0000001],
-#         'precisionBest': [2],
-#         'patienceLimit': [50, 50, 50, 75, 75],
-#         'epochsNum': [1000],
-#         'batchSize': [512],
-#     }
-# }
 # PARAM = {
 #     'dataset': {
 #         'doNormalPos': [False],
@@ -404,10 +373,12 @@ class Pipeline(nn.Module):
         batchSize,
         precision=0,
         precisionBest=0,
-        save=True
+        save=True,
+        silent=False
     ):
-        print("Beginning of the training of your network...")
-        print(f"Device used: {next(self.model.parameters()).device}")
+        if not silent:
+            print("Beginning of the training of your network...")
+            print(f"Device used: {next(self.model.parameters()).device}")
 
         lossPrev = float('inf')
         accPrev = 0
@@ -429,7 +400,8 @@ class Pipeline(nn.Module):
             persistent_workers=True
         )
 
-        print(f"Dataset size: {len(self.dataset)}")  # Dataset size 15018
+        if not silent:
+            print(f"Dataset size: {len(self.dataset)}")  # Dataset size 15018
 
         for epoch in range(epochsNum):
             self.model.train()
@@ -461,9 +433,10 @@ class Pipeline(nn.Module):
             trainAcc = 100. * trainCor / trainTot
 
             if (epoch + 1) % 10 == 0:
-                print(f"Epoch [{epoch + 1}/{epochsNum}]")
-                print(f"  Train Loss: {trainLossAvg:.4f}", end="")
-                print(f", Train Acc: {trainAcc:.2f}%")
+                if not silent:
+                    print(f"Epoch {epoch + 1}/{epochsNum}")
+                    print(f"  Train Loss: {trainLossAvg:.4f}", end="")
+                    print(f", Train Acc: {trainAcc:.2f}%")
 
             if len(validLoader) != 0:
                 self.model.eval()
@@ -503,8 +476,9 @@ class Pipeline(nn.Module):
                 acc = validAcc
 
                 if (epoch + 1) % 10 == 0:
-                    print(f"  Valid Loss: {validLossAvg:.4f}", end="")
-                    print(f", Valid Acc: {validAcc:.2f}%")
+                    if not silent:
+                        print(f"  Valid Loss: {validLossAvg:.4f}", end="")
+                        print(f", Valid Acc: {validAcc:.2f}%")
             else:
                 lossAvg = trainLossAvg
                 acc = trainAcc
@@ -521,19 +495,30 @@ class Pipeline(nn.Module):
                     self.bestLoss = lossAvg
                     self.bestAcc = acc
                     self.patienceCount = 0
-                    print("Model improved...", end="")
+
+                    if not silent:
+                        print("Model improved...", end="")
+
                     if save:
                         torch.save(self.model.state_dict(), self.path)
-                        print(" saved !", end="")
-                    print()
+
+                        if not silent:
+                            print(" saved !", end="")
+
+                    if not silent:
+                        print()
                 else:
                     self.patienceCount += 1
                     if self.patienceCount >= self.patienceLimit:
-                        print(f"Early stopping at epoch {epoch + 1}")
+                        if not silent:
+                            print(f"Early stopping at epoch {epoch + 1}")
+
                         break
             else:
                 if abs(lossPrev - trainLossAvg) < precision:
-                    print(f"Early stopping at epoch {epoch + 1}")
+                    if not silent:
+                        print(f"Early stopping at epoch {epoch + 1}")
+
                     break
 
             lossPrev = lossAvg
@@ -541,9 +526,12 @@ class Pipeline(nn.Module):
 
         if save and precisionBest == 0:
             torch.save(self.model.state_dict(), self.path)
-            print("Model saved !")
 
-        print("Finished training your network model...")
+            if not silent:
+                print("Model saved !")
+
+        if not silent:
+            print("Finished training your network model...")
 
         if precisionBest == 0:
             return [lossPrev, accPrev]
@@ -551,7 +539,7 @@ class Pipeline(nn.Module):
             return [self.bestLoss, self.bestAcc]
 
 
-def search_training(folderPath, numTrials, save=True):
+def search_training(folderPath, numTrials, save=True, silent=False):
     results = []
     failed = []
     files = os.listdir(folderPath)
@@ -567,10 +555,13 @@ def search_training(folderPath, numTrials, save=True):
         os.makedirs(os.path.join(folderPath, str(folder)))
 
     for trial in range(numTrials):
-        print()
-        print(f"{'='*60}")
-        print(f"Trial {trial + 1}/{numTrials}")
-        print(f"{'='*60}")
+        if silent:
+            print(f"Trial [{trial + 1}/{numTrials}]", end="")
+        else:
+            print()
+            print(f"{'='*60}")
+            print(f"Trial {trial + 1}/{numTrials}")
+            print(f"{'='*60}")
 
         viewDistance = choice(PARAM['dataset']['viewDistance'])
         inputSize = get_tensor_size(viewDistance)
@@ -612,7 +603,8 @@ def search_training(folderPath, numTrials, save=True):
             'trial_id': trial,
         }
 
-        print(f"Configuration: {json.dumps(config, indent=2)}")
+        if not silent:
+            print(f"Configuration: {json.dumps(config, indent=2)}")
 
         try:
             dataset = PacmanDataset(
@@ -668,7 +660,8 @@ def search_training(folderPath, numTrials, save=True):
                 config['training']['batchSize'],
                 config['training']['precision'],
                 config['training']['precisionBest'],
-                save=save
+                save=save,
+                silent=silent
             )
 
             result = {
@@ -681,7 +674,10 @@ def search_training(folderPath, numTrials, save=True):
             }
             results.append(result)
 
-            print(f"SUCCESS - Loss: {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
+            if silent:
+                print(f" - success; {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
+            else:
+                print(f"SUCCESS - Loss: {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
 
             if save:
                 with open(
@@ -704,8 +700,11 @@ def search_training(folderPath, numTrials, save=True):
             }
             failed.append(error)
 
-            print(f"FAILED - Trial {trial}")
-            print(f"Error: {str(e)}")
+            if silent:
+                print(f" - fail: {str(e)}")
+            else:
+                print(f"FAILED - Trial {trial}")
+                print(f"Error: {str(e)}")
 
         finally:
             if save:
@@ -726,11 +725,14 @@ def search_training(folderPath, numTrials, save=True):
             if USE_CUDA:
                 torch.cuda.empty_cache()
 
-    print(f"\n{'='*60}")
-    print("Training Complete!")
-    print(f"  Successful trials: {len(results)}/{numTrials}")
-    print(f"  Failed trials: {len(failed)}/{numTrials}")
-    print(f"{'='*60}")
+    if silent:
+        print(f"Finished: {len(results)}/{numTrials} succeeded.")
+    else:
+        print(f"\n{'='*60}")
+        print("Training Complete!")
+        print(f"  Successful trials: {len(results)}/{numTrials}")
+        print(f"  Failed trials: {len(failed)}/{numTrials}")
+        print(f"{'='*60}")
 
     return results, failed
 
@@ -756,8 +758,9 @@ def get_best(folder, index=0, byAcc=True):
 if __name__ == "__main__":
     torch.manual_seed(42)
     random.seed(42)
+    silent = True
 
-    results, failed = search_training("models", 1000)
+    results, failed = search_training("models", 1000, silent=True)
 
     if results:
         bestAcc = max(
@@ -768,9 +771,16 @@ if __name__ == "__main__":
             results,
             key=lambda x: x['performance']['loss']
         )
+        if silent:
+            print("Best: ", end="")
+            print(f"Loss by model {bestLoss['trial_id']} ", end="")
+            print(f"[{bestLoss['performance']['loss']:.2f}]", end="")
+            print(f"Acc by model {bestAcc['trial_id']} ", end="")
+            print(f"[{bestAcc['performance']['accuracy']:.2f}], ", end="")
+            print()
+        else:
+            print(f"\nBest by Accuracy: {bestAcc['performance']['accuracy']:.2f}%")
+            print(f"Config: {json.dumps(bestAcc, indent=2)}")
 
-        print(f"\nBest by Accuracy: {bestAcc['performance']['accuracy']:.2f}%")
-        print(f"Config: {json.dumps(bestAcc, indent=2)}")
-
-        print(f"\nBest by Loss: {bestLoss['performance']['loss']:.4f}")
-        print(f"Config: {json.dumps(bestLoss, indent=2)}")
+            print(f"\nBest by Loss: {bestLoss['performance']['loss']:.4f}")
+            print(f"Config: {json.dumps(bestLoss, indent=2)}")
