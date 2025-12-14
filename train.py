@@ -21,65 +21,34 @@ SCALER = torch.amp.GradScaler(enabled=USE_CUDA)
 PARAM = {
     'dataset': {
         'doNormalPos': [False],
-        'viewDistance': [4, 4, 4, 5, 5],
+        'viewDistance': [4],
     },
     'network': {
-        'layersNum': [4, 4, 4, 5, 7],
-        'layer1SizeMultiplier': [4, 4, 4, 5, 7],
-        'layerSizeFun': ["linear", "linear", "linear", "linear", "half"],
+        'layersNum': [4],
+        'layer1SizeMultiplier': [4],
+        'layerSizeFun': ['linear'],
         'layerFun': ['Linear'],
         'doNormal': [True],
         'normalFun': ['BatchNorm1d'],
-        'action': ["GELU", "GELU", "SiLU", "SiLU", "SiLU"],
+        'action': ['GELU'],
         'doDropout': [True],
-        'dropoutRate': [0.2, 0.2, 0.2, 0.2, 0.3],
+        'dropoutRate': [0.2],
     },
     'training': {
         'learningRate': [0.0005],
         'criterion': ['CrossEntropyLoss'],
-        'optimizer': ["AdamW", "AdamW", "AdamW", "Adam", "Adam"],
-        'weightDecay': [0, 0, 0, 0.001, 0.001],
+        'optimizer': ['AdamW'],
+        'weightDecay': [0.0],
         'doScheduler': [False],
-        'schedulerType': ["StepLR"],
+        'schedulerType': ['StepLR'],
         'validSplit': [0.2],
-        'precision': [0.0000001],
+        'precision': [0.000001],
         'precisionBest': [2],
-        'patienceLimit': [50, 50, 50, 75, 75],
+        'patienceLimit': [50],
         'epochsNum': [1000],
         'batchSize': [512],
     }
 }
-# PARAM = {
-#     'dataset': {
-#         'doNormalPos': [False],
-#         'viewDistance': [4],
-#     },
-#     'network': {
-#         'layersNum': [4],
-#         'layer1SizeMultiplier': [4],
-#         'layerSizeFun': ['linear'],
-#         'layerFun': ['Linear'],
-#         'doNormal': [True],
-#         'normalFun': ['BatchNorm1d'],
-#         'action': ['GELU'],
-#         'doDropout': [True],
-#         'dropoutRate': [0.2],
-#     },
-#     'training': {
-#         'learningRate': [0.0005],
-#         'criterion': ['CrossEntropyLoss'],
-#         'optimizer': ['AdamW'],
-#         'weightDecay': [0.0],
-#         'doScheduler': [False],
-#         'schedulerType': ['StepLR'],
-#         'validSplit': [0.2],
-#         'precision': [0.000001],
-#         'precisionBest': [2],
-#         'patienceLimit': [50],
-#         'epochsNum': [1000],
-#         'batchSize': [512],
-#     }
-# }
 
 
 def get_layer_size_fun(name):
@@ -675,7 +644,7 @@ def search_training(folderPath, numTrials, save=True, silent=False):
             results.append(result)
 
             if silent:
-                print(f" - success; {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
+                print(f" - success: Loss: {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
             else:
                 print(f"SUCCESS - Loss: {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
 
@@ -756,8 +725,8 @@ def get_best(folder, index=0, byAcc=True):
 
 
 if __name__ == "__main__":
-    torch.manual_seed(42)
-    random.seed(42)
+    torch.manual_seed(420)
+    random.seed(420)
     silent = True
 
     results, failed = search_training("models", 1000, silent=True)
