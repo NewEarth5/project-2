@@ -16,41 +16,67 @@ from data import PacmanDataset
 USE_CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if USE_CUDA else "cpu")
 SCALER = torch.amp.GradScaler(enabled=USE_CUDA)
-print(f"Using device: {DEVICE}")
-if USE_CUDA:
-    print(f"CUDA device: {torch.cuda.get_device_name(0)}")
 
-VERSION = 8.5
-
+# PARAMETERS = {
+#     'dataset': {
+#         'doNormalPos': [True, False],
+#         'viewDistance': [4, 5, 6, 7],
+#     },
+#     'network': {
+#         'layersNum': [2, 3, 4, 5, 6, 7],
+#         'layer1SizeMultiplier': [1.0, 1.5, 2.0, 3.0, 5.0],
+#         'layerSizeFun': ['two_thirds', 'half', 'diamond', 'linear'],
+#         'layerFun': ['Linear'],
+#         'doNormal': [True, False],
+#         'normalFun': ['BatchNorm1d', 'InstanceNorm1d'],
+#         'action': ['LeakyReLU', 'GELU', 'SiLU'],
+#         'doDropout': [True],
+#         'dropoutRate': [0.1, 0.2, 0.3],
+#     },
+#     'training': {
+#         'learningRate': [0.0001, 0.0005, 0.001],
+#         'criterion': ['CrossEntropyLoss'],
+#         'optimizer': ['Adam', 'AdamW', 'RMSprop'],
+#         'weightDecay': [0.0, 0.1, 0.01, 0.001],
+#         'doScheduler': [True, False],
+#         'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR', 'StepLR'],
+#         'validSplit': [0.1, 0.2],
+#         'precision': [0.0000001, 0.0000005, 0.000001],
+#         'precisionBest': [0, 1, 2],
+#         'patienceLimit': [30, 40, 50],
+#         'epochsNum': [250, 500, 1000],
+#         'batchSize': [512],
+#     }
+# }
 PARAMETERS = {
     'dataset': {
-        'doNormalPos': [True, False],
-        'viewDistance': [3, 5, 7],
+        'doNormalPos': [False],
+        'viewDistance': [5],
     },
     'network': {
-        'layersNum': [2, 3, 4, 5, 6, 7],
-        'layer1SizeMultiplier': [1.0, 1.5, 2.0, 3.0, 5.0],
-        'layerSizeFun': ['two_thirds', 'half', 'diamond', 'linear'],
+        'layersNum': [5],
+        'layer1SizeMultiplier': [5.0],
+        'layerSizeFun': ['diamond'],
         'layerFun': ['Linear'],
-        'doNormal': [True, False],
-        'normalFun': ['BatchNorm1d', 'GroupNorm', 'InstanceNorm1d', 'LayerNorm', 'LocalResponseNorm', 'RMSNorm'],
-        'action': ['ReLU', 'LeakyReLU', 'GELU', 'Tanh', 'ELU', 'Sigmoid', 'SiLU', 'Mish', 'Softplus', 'PReLU'],
-        'doDropout': [True, False],
-        'dropoutRate': [0.1, 0.2, 0.3, 0.5],
+        'doNormal': [False],
+        'normalFun': ['BatchNorm1d'],
+        'action': ['LeakyReLU'],
+        'doDropout': [True],
+        'dropoutRate': [0.3],
     },
     'training': {
-        'learningRate': [0.0001, 0.0005, 0.001, 0.005, 0.01],
-        'criterion': ['MSELoss', 'CrossEntropyLoss', 'NLLLoss', 'HuberLoss', 'SmoothL1Loss'],
-        'optimizer': ['Adam', 'AdamW', 'SGD', 'RMSprop', 'Adagrad'],
-        'weightDecay': [0.0, 0.1, 0.01, 0.001, 0.0001],
-        'doScheduler': [True, False],
-        'schedulerType': ['ReduceLROnPlateau', 'CosineAnnealingLR', 'StepLR'],
-        'validSplit': [0, 0.05, 0.1, 0.15, 0.2],
-        'precision': [0.0000001, 0.0000005, 0.000001],
-        'precisionBest': [0, 1, 2],
-        'patienceLimit': [10, 20, 30, 40, 50],
-        'epochsNum': [100, 200, 300, 500, 1000],
-        'batchSize': [32, 64, 128, 256, 512, 1024],
+        'learningRate': [0.0005],
+        'criterion': ['CrossEntropyLoss'],
+        'optimizer': ['Adam'],
+        'weightDecay': [0.0],
+        'doScheduler': [True],
+        'schedulerType': ['StepLR'],
+        'validSplit': [0.1],
+        'precision': [0.000001],
+        'precisionBest': [2],
+        'patienceLimit': [30],
+        'epochsNum': [250],
+        'batchSize': [512],
     }
 }
 
@@ -320,7 +346,7 @@ class Pipeline(nn.Module):
             trainLossAvg = trainLossTot / len(trainLoader)
             trainAcc = 100. * trainCor / trainTot
 
-            if (epoch + 1) % (epochsNum // 10) == 0:
+            if (epoch + 1) % (epochsNum // 100) == 0:
                 print(f"Epoch [{epoch + 1}/{epochsNum}]")
                 print(f"  Train Loss: {trainLossAvg:.4f}, Train Acc: {trainAcc:.2f}%")
 
@@ -349,7 +375,7 @@ class Pipeline(nn.Module):
                 lossAvg = validLossAvg
                 acc = validAcc
 
-                if (epoch + 1) % (epochsNum // 10) == 0:
+                if (epoch + 1) % (epochsNum // 100) == 0:
                     print(f"  Valid Loss: {validLossAvg:.4f}, Valid Acc: {validAcc:.2f}%")
             else:
                 lossAvg = trainLossAvg
@@ -547,26 +573,37 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/"):
     return results, failed
 
 
-if __name__ == "__main__":
+def get_best(folder, index=0, byAcc=True):
+    with open(f"models/training_results_V{folder}.json", "r") as file:
+        dictJson = json.load(file)
 
+    results = dictJson['results']
+
+    if results:
+        loss = np.array([result['performance']['loss'] for result in results])
+        lossInd = np.argsort(loss)
+        acc = np.array([result['performance']['accuracy'] for result in results])
+        accInd = np.argsort(-acc)
+        # bestAcc = max(results, key=lambda x: x['performance']['accuracy'])
+        # bestLoss = min(results, key=lambda x: float('inf') if x['performance']['loss'] == float('-inf') or x['performance']['loss'] == np.nan or x['performance']['loss'] < 0 else x['performance']['loss'])
+        if byAcc:
+            return int(results[accInd[index]]['trial_id']) + 1
+        else:
+            return int(results[lossInd[index]]['trial_id']) + 1
+
+
+if __name__ == "__main__":
     torch.manual_seed(42)
     random.seed(42)
 
-    folderPath = "models"
-    testNum = 10
-    bestLoss = float('inf')
-    bestLossModel = ""
-    bestAcc = 0
-    bestAccModel = ""
-
-    results, failed = search_training(folderPath, numTrials=1000)
+    results, failed = search_training("models", numTrials=10)
 
     if results:
-        best_by_acc = max(results, key=lambda x: x['performance']['accuracy'])
-        best_by_loss = min(results, key=lambda x: x['performance']['loss'])
+        bestAcc = max(results, key=lambda x: x['performance']['accuracy'])
+        bestLoss = min(results, key=lambda x: float('inf') if x['performance']['loss'] == float('-inf') or x['performance']['loss'] == np.nan or x['performance']['loss'] < 0 else x['performance']['loss'])
 
-        print(f"\nBest by Accuracy: {best_by_acc['performance']['accuracy']:.2f}%")
-        print(f"Config: {json.dumps(best_by_acc, indent=2)}")
+        print(f"\nBest by Accuracy: {bestAcc['performance']['accuracy']:.2f}%")
+        print(f"Config: {json.dumps(bestAcc, indent=2)}")
 
-        print(f"\nBest by Loss: {best_by_loss['performance']['loss']:.4f}")
-        print(f"Config: {json.dumps(best_by_loss, indent=2)}")
+        print(f"\nBest by Loss: {bestLoss['performance']['loss']:.4f}")
+        print(f"Config: {json.dumps(bestLoss, indent=2)}")
