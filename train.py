@@ -10,25 +10,24 @@ from pacman_module.game import Directions
 from architecture import PacmanNetwork
 from data import PacmanDataset
 
+USE_CUDA = torch.cuda.is_available()
+DEVICE = torch.device("cuda" if USE_CUDA else "cpu")
+SCALER = torch.amp.GradScaler(enabled=USE_CUDA)
+print(f"Using device: {DEVICE}")
+if USE_CUDA:
+    print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+
 VERSION = 6.1
-EPOCHSNUM = 100
-
-ACTION_INDEX = {
-    Directions.NORTH: 0,
-    Directions.SOUTH: 1,
-    Directions.EAST: 2,
-    Directions.WEST: 3,
-    Directions.STOP: 4
-}
+EPOCHSNUM = 500
 
 
-def actions_convert(actions):
-    actionsInd = []
+# def actions_convert(actions):
+#     actionsInd = []
 
-    for action in actions:
-        actionsInd.append(ACTION_INDEX[action])
+#     for action in actions:
+#         actionsInd.append(ACTION_INDEX[action])
 
-    return torch.tensor(actionsInd, dtype=torch.long)
+#     return torch.tensor(actionsInd, dtype=torch.long)
 
 
 class Pipeline(nn.Module):
@@ -45,7 +44,7 @@ class Pipeline(nn.Module):
 
         self.path = path
         self.dataset = PacmanDataset(self.path)
-        self.model = PacmanNetwork()
+        self.model = PacmanNetwork().to(DEVICE)
 
         datasetSize = len(self.dataset)
         validSize = int(datasetSize * validSplit)
@@ -62,22 +61,29 @@ class Pipeline(nn.Module):
 
     def train(self, version=1, epochsNum=100, precision=0):
         print("Beginning of the training of your network...")
+        print(f"Device used: {next(self.model.parameters()).device}")
 
-        batchSize = 64
+        batchSize = 512
         lossPrev = np.inf
 
         trainLoader = DataLoader(
             self.datasetTrain,
             batch_size=batchSize,
-            shuffle=True
+            shuffle=True,
+            pin_memory=USE_CUDA,
+            num_workers=2,
+            persistent_workers=True
         )
         validLoader = DataLoader(
             self.datasetValid,
             batch_size=batchSize,
-            shuffle=False
+            shuffle=False,
+            pin_memory=USE_CUDA,
+            num_workers=2,
+            persistent_workers=True
         )
 
-        print(f"Dataset size: {len(trainLoader) + len(validLoader)}")  # Dataset size 235
+        print(f"Dataset size: {len(self.dataset)}")  # Dataset size 15018
 
         for epoch in range(epochsNum):
             self.model.train()
@@ -86,14 +92,26 @@ class Pipeline(nn.Module):
             trainTot = 0
 
             for batchInputs, batchActions in trainLoader:
-                batchActionsInd = actions_convert(batchActions)
+                batchInputs = batchInputs.to(DEVICE, non_blocking=USE_CUDA)
+                # batchActionsInd = actions_convert(batchActions).to(DEVICE, non_blocking=USE_CUDA)
+                batchActionsInd = batchActions.to(DEVICE, non_blocking=USE_CUDA)
 
-                self.optimizer.zero_grad()
-                batchOutputs = self.model(batchInputs)
-                batchLoss = self.criterion(batchOutputs, batchActionsInd)
-                batchLoss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                self.optimizer.step()
+                self.optimizer.zero_grad(set_to_none=True)
+                with torch.amp.autocast(device_type="cuda", enabled=USE_CUDA):
+                    batchOutputs = self.model(batchInputs)
+                    batchLoss = self.criterion(batchOutputs, batchActionsInd)
+
+                SCALER.scale(batchLoss).backward()
+                SCALER.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                SCALER.step(self.optimizer)
+                SCALER.update()
+
+                # batchOutputs = self.model(batchInputs)
+                # batchLoss = self.criterion(batchOutputs, batchActionsInd)
+                # batchLoss.backward()
+                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                # self.optimizer.step()
 
                 trainLossTot += batchLoss.item()
                 _, predicted = batchOutputs.max(1)
@@ -115,9 +133,13 @@ class Pipeline(nn.Module):
 
                 with torch.no_grad():
                     for batchInputs, batchActions in validLoader:
-                        batchActionsInd = actions_convert(batchActions)
-                        batchOutputs = self.model(batchInputs)
-                        batchLoss = self.criterion(batchOutputs, batchActionsInd)
+                        batchInputs = batchInputs.to(DEVICE, non_blocking=USE_CUDA)
+                        # batchActionsInd = actions_convert(batchActions).to(DEVICE, non_blocking=USE_CUDA)
+                        batchActionsInd = batchActions.to(DEVICE, non_blocking=USE_CUDA)
+
+                        with torch.amp.autocast(device_type="cuda", enabled=USE_CUDA):
+                            batchOutputs = self.model(batchInputs)
+                            batchLoss = self.criterion(batchOutputs, batchActionsInd)
 
                         validLossTot += batchLoss.item()
                         _, predicted = batchOutputs.max(1)

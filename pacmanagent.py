@@ -6,7 +6,7 @@ import torch
 from pacman_module.game import Agent
 
 from data import state_to_tensor
-from train import ACTION_INDEX
+from data import ACTION_INDEX
 
 
 def invert_dictionnary(dictionnary, value):

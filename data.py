@@ -6,6 +6,14 @@ from torch.utils.data import Dataset
 
 from pacman_module.game import Directions
 
+ACTION_INDEX = {
+    Directions.NORTH: 0,
+    Directions.SOUTH: 1,
+    Directions.EAST: 2,
+    Directions.WEST: 3,
+    Directions.STOP: 4
+}
+
 DIRECTION_MAPPING = {
     Directions.NORTH: [1, 0, 0, 0],
     Directions.EAST: [0, 1, 0, 0],
@@ -114,7 +122,10 @@ class PacmanDataset(Dataset):
         for s, a in data:
             x = state_to_tensor(s)
             self.inputs.append(x)
-            self.actions.append(a)
+            self.actions.append(ACTION_INDEX[a])
+
+        self.inputs = torch.stack(self.inputs)
+        self.actions = torch.tensor(self.actions, dtype=torch.long)
 
     def __len__(self):
         return len(self.inputs)
