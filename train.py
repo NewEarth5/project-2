@@ -748,7 +748,7 @@ if __name__ == "__main__":
             print(f"[{bestAcc['performance']['accuracy']:.2f}], ", end="")
             print()
         else:
-            print(f"\nBest by Accuracy: {bestAcc['performance']['accuracy']:.2f}%")
+            print(f"\nBest by Acc: {bestAcc['performance']['accuracy']:.2f}%")
             print(f"Config: {json.dumps(bestAcc, indent=2)}")
 
             print(f"\nBest by Loss: {bestLoss['performance']['loss']:.4f}")
