@@ -4,7 +4,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from architecture import PacmanNetwork
-from data import TENSOR_SIZE, N, PacmanDataset
+from data import PacmanDataset
 
 USE_CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if USE_CUDA else "cpu")
@@ -26,6 +26,22 @@ def get_action(name):
     if name == "GELU":
         return nn.GELU()
     raise ValueError()
+
+
+def get_layer_fun(name):
+    if name == "Linear":
+        return nn.Linear
+    raise ValueError()
+
+
+def get_normal_fun(name):
+    if name == "BatchNorm1d":
+        return nn.BatchNorm1d
+    raise ValueError()
+
+
+def get_tensor_size(viewDistance):
+    return 2 + 2 + (2 * viewDistance * (viewDistance + 1)) + (2 * viewDistance * (viewDistance + 1)) + 4
 
 
 class Pipeline(nn.Module):
@@ -92,16 +108,16 @@ class Pipeline(nn.Module):
             batch_size=batchSize,
             shuffle=True,
             pin_memory=USE_CUDA,
-            num_workers=2,
-            persistent_workers=True
+            # num_workers=2,
+            # persistent_workers=True
         )
         validLoader = DataLoader(
             self.datasetValid,
             batch_size=batchSize,
             shuffle=False,
             pin_memory=USE_CUDA,
-            num_workers=2,
-            persistent_workers=True
+            # num_workers=2,
+            # persistent_workers=True
         )
 
         print(f"Dataset size: {len(self.dataset)}")  # Dataset size 15018
@@ -192,7 +208,7 @@ class Pipeline(nn.Module):
             lossPrev = lossAvg
 
         if save and precisionBest is not True:
-            torch.save(self.model.state_dict(), f"models/pacman_model_V{version}-{.pth")
+            torch.save(self.model.state_dict(), f"models/pacman_model_V{version}-{epochsNum}.pth")
             print("Model saved !")
 
         print("Finished training your network model...")
@@ -200,128 +216,157 @@ class Pipeline(nn.Module):
 
 if __name__ == "__main__":
     import json
-    # TODO tweaking:
-    #   - Data:
-    #       - View Distance
-    #       - Normalise positions
-    #   - Neural Network:
-    #       - Number of Layers
-    #       - Layer Size
-    #       - Normalisation
-    #       - Activation
-    #       - Dropout Rate
-    #   - Training:
-    #       - Criterion
-    #       - Optimizer
-    #       - Learning Rate
-    #       - Scheduler
-    #       - Batchsize
-    #       - Normalisation
-    #       - Epoch
+
     path = "datasets/pacman_dataset.pkl"
+    testNum = 10
 
-    # Data
-    doNormalPos = True
-    viewDistance = N
+    try:
+        # Dataset
+        allDoNormalPos = [True, False]
+        for doNormalPos in allDoNormalPos:
+            for viewDistance in range(1, 10 + 1):
+                dataset = PacmanDataset(
+                    path,
+                    doNormalPos=doNormalPos,
+                    viewDistance=viewDistance
+                )
 
-    dataset = PacmanDataset(
-        path,
-        doNormalPos=doNormalPos,
-        viewDistance=viewDistance
-    )
+                # Neural Network
+                inputSize = get_tensor_size(viewDistance)
+                outputSize = 5
+                for layersNum in range(1, 10 + 1):
+                    for layer1Fact in range(100, 1000 + 1):
+                        layer1Size = inputSize * layer1Fact // 100
+                        allLayerSizeFunName = ["two_thirds"]
+                        for layerSizeFunName in allLayerSizeFunName:
+                            layer_size_fun = get_layer_size_fun(layerSizeFunName)
+                            allLayerFunName = ["Linear"]
+                            for layerFunName in allLayerFunName:
+                                layer_fun = get_layer_fun(layerFunName)
+                                allDoNormalNet = [True, False]
+                                for doNormalNet in allDoNormalNet:
+                                    if doNormalNet:
+                                        allNormalFunName = ["BatchNorm1d"]
+                                    else:
+                                        allNormalFunName = ["BatchNorm1d"]
+                                    for normalFunName in allNormalFunName:
+                                        normal_fun = get_normal_fun(normalFunName)
+                                        allActionName = ["GELU"]
+                                        for actionName in allActionName:
+                                            action = get_action(actionName)
+                                            allDoDropout = [True, False]
+                                            for doDropout in allDoDropout:
+                                                if doDropout:
+                                                    rangeDropoutRate = 99
+                                                else:
+                                                    rangeDropoutRate = 0
+                                                for dropoutRateFact in range(rangeDropoutRate + 1):
+                                                    dropoutRate = dropoutRateFact / 100
+                                                    model = PacmanNetwork(
+                                                        inputSize,
+                                                        outputSize,
+                                                        layersNum,
+                                                        layer1Size,
+                                                        layer_size_fun,
+                                                        layer_fun,
+                                                        doNormalNet,
+                                                        normal_fun,
+                                                        action,
+                                                        doDropout,
+                                                        dropoutRate
+                                                    ).to(DEVICE)
 
-    # Neural Network
-    inputSize = TENSOR_SIZE
-    outputSize = 5
-    layersNum = 5
-    layer1Size = TENSOR_SIZE * 3
-    layerSizeFunName = "two_thirds"
-    layer_size_fun = get_layer_size_fun(layerSizeFunName)
-    doNormal = True
-    actionName = "GELU"
-    action = get_action(actionName)
-    doDropout = True
-    dropoutRate = 0.3
+                                                    # Training model
+                                                    for learningRateFact in range(1, 100 + 1):
+                                                        learningRate = learningRateFact / 10000
+                                                        allCriterion = [nn.CrossEntropyLoss()]
+                                                        for criterion in allCriterion:
+                                                            allOptimizer = []
+                                                            allOptimizer.extend([optim.AdamW(model.parameters(), lr=learningRate, weight_decay=decay / 1000)] for decay in range(0, 100 + 1, 5))
+                                                            for optimizer in allOptimizer:
+                                                                allDoScheduler = [True, False]
+                                                                for doScheduler in allDoScheduler:
+                                                                    if doScheduler:
+                                                                        allScheduler = []
+                                                                        allScheduler.extend([optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor / 10, patience=patience) for factor in range(10) for patience in range(10)])
+                                                                    else:
+                                                                        allScheduler = [optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)]
+                                                                    for scheduler in allScheduler:
+                                                                        for validSplitFact in range(9 + 1):
+                                                                            validSplit = validSplitFact / 10
+                                                                            allPrecisionBest = [True, False]
+                                                                            for precisionBest in allPrecisionBest:
+                                                                                if precisionBest:
+                                                                                    rangePatienceLimit = 100
+                                                                                else:
+                                                                                    rangePatienceLimit = 0
+                                                                                for patienceLimit in range(0, rangePatienceLimit + 1, 10):
+                                                                                    pipeline = Pipeline(
+                                                                                        path,
+                                                                                        dataset,
+                                                                                        model,
+                                                                                        criterion,
+                                                                                        optimizer,
+                                                                                        doScheduler,
+                                                                                        scheduler,
+                                                                                        validSplit,
+                                                                                        patienceLimit=patienceLimit
+                                                                                    )
 
-    model = PacmanNetwork(
-        inputSize,
-        outputSize,
-        layersNum=layersNum,
-        layer1Size=layer1Size,
-        layer_size_fun=layer_size_fun,
-        doNormal=doNormal,
-        action=action,
-        doDropout=doDropout,
-        dropoutRate=dropoutRate
-    ).to(DEVICE)
+                                                                                    # Training
+                                                                                    for epochsNum in range(0, 1000 + 1, 5):
+                                                                                        if epochsNum == 0:
+                                                                                            continue
+                                                                                        for batchSizeFact in range(15 + 1):
+                                                                                            batchSize = 2**batchSizeFact
+                                                                                            allDoNormalTrain = [True, False]
+                                                                                            for doNormalTrain in allDoNormalTrain:
+                                                                                                if doNormalTrain:
+                                                                                                    allNormal = [torch.nn.utils.clip_grad_norm_(model.parameters(), i / 10) for i in range(100 + 1)]
+                                                                                                else:
+                                                                                                    allNormal = [torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)]
+                                                                                                for normal in allNormal:
+                                                                                                    for precisionFact in range(10):
+                                                                                                        precision = precisionFact / 1000000
+                                                                                                        for i in range(testNum + 1):
+                                                                                                            version = VERSION
+                                                                                                            save = True
 
-    dict = {
-        'dataset': {
-            'doNormalPos': doNormalPos,
-            'viewDistance': viewDistance,
-        },
-        'network': {
-            'inputSize': inputSize,
-            'outputSize': outputSize,
-            'layersNum': layersNum,
-            'layer1Size': layer1Size,
-            'layerSizeFunName': layerSizeFunName,
-            'doNormal': doNormal,
-            'actionName': actionName,
-            'doDropout': doDropout,
-            'dropoutRate': dropoutRate,
-        },
-    }
+                                                                                                            pipeline.train(
+                                                                                                                epochsNum,
+                                                                                                                batchSize,
+                                                                                                                doNormalTrain,
+                                                                                                                normal,
+                                                                                                                precision=precision,
+                                                                                                                precisionBest=precisionBest,
+                                                                                                                version=version,
+                                                                                                                save=save
+                                                                                                            )
 
-    # Training model
-    learningRate = 0.001
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=learningRate, weight_decay=0.01)
-    doScheduler = True
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode='min',
-        factor=0.5,
-        patience=5
-    )
-    validSplit = 0.2
-    patienceLimit = 15
+                                                                                                            if save:
+                                                                                                                dict = {
+                                                                                                                    'dataset': {
+                                                                                                                        'doNormalPos': doNormalPos,
+                                                                                                                        'viewDistance': viewDistance,
+                                                                                                                    },
+                                                                                                                    'network': {
+                                                                                                                        'inputSize': inputSize,
+                                                                                                                        'outputSize': outputSize,
+                                                                                                                        'layersNum': layersNum,
+                                                                                                                        'layer1Size': layer1Size,
+                                                                                                                        'layerSizeFunName': layerSizeFunName,
+                                                                                                                        'layerFunName': layerFunName,
+                                                                                                                        'doNormal': doNormalNet,
+                                                                                                                        'normalFunName': normalFunName,
+                                                                                                                        'actionName': actionName,
+                                                                                                                        'doDropout': doDropout,
+                                                                                                                        'dropoutRate': dropoutRate,
+                                                                                                                    },
+                                                                                                                }
 
-    pipeline = Pipeline(
-        path,
-        dataset,
-        model,
-        criterion,
-        optimizer,
-        doScheduler,
-        scheduler,
-        validSplit,
-        patienceLimit=patienceLimit
-    )
-
-    # Training
-    epochsNum = 500
-    batchSize = 512
-    doNormal = True
-    normal = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-    precision = 0
-    precisionBest = False
-    version = VERSION
-    save = True
-
-    pipeline.train(
-        epochsNum,
-        batchSize,
-        doNormal,
-        normal,
-        precision=precision,
-        precisionBest=precisionBest,
-        version=version,
-        save=save
-    )
-
-    if save:
-        print("Writing model config...")
-        with open(f"models/pacman_model_V{version}-{epochsNum}.json", "w") as file:
-            json.dump(dict, file)
-        print("Finished writing model config...")
+                                                                                                                print("Writing model config...")
+                                                                                                                with open(f"models/pacman_model_V{version}-{epochsNum}.json", "w") as file:
+                                                                                                                    json.dump(dict, file)
+                                                                                                                print("Finished writing model config...")
+    except:
+        print()
