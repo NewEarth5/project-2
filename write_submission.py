@@ -24,7 +24,12 @@ class SubmissionWriter:
         config = get_config(folder, version)
         self.model = get_PacmanNetwork(config, folder)
         self.pacman = get_PacmanAgent(self.model, config)
-        self.model.load_state_dict(torch.load(f"models/{folder}/pacman_model_V{version}.pth", map_location="cpu"))
+        self.model.load_state_dict(
+            torch.load(
+                f"models/{folder}/pacman_model_V{version}.pth",
+                map_location="cpu"
+            )
+        )
         self.model.eval()
 
     def predict_on_testset(self):
@@ -59,7 +64,7 @@ class SubmissionWriter:
 
 
 if __name__ == "__main__":
-    folder = 8
+    folder = 11
     version = get_best(folder, index=0)
     modelPath = f"models/{folder}/pacman_model_V{version}"
     writer = SubmissionWriter(
