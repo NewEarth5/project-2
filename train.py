@@ -19,12 +19,12 @@ VERSION = 8.5
 def get_layer_size_fun(name):
     if name == "two_thirds":
         return lambda prev, i, num: prev * 2 // 3
-    raise ValueError()
-
-
-def get_action(name):
-    if name == "GELU":
-        return nn.GELU()
+    if name == "half":
+        return lambda prev, i, num: prev // 2
+    if name == "diamond":
+        return lambda prev, i, num: prev * 2 if i <= num // 2 else prev // 2
+    if name == "linear":
+        return lambda prev, i, num: prev
     raise ValueError()
 
 
@@ -34,9 +34,87 @@ def get_layer_fun(name):
     raise ValueError()
 
 
+def get_action(name):
+    if name == "ELU":
+        return nn.ELU()
+    if name == "Hardshrink":
+        return nn.Hardshrink()
+    if name == "Hardsigmoid":
+        return nn.Hardsigmoid()
+    if name == "Hardtanh":
+        return nn.Hardtanh()
+    if name == "Hardswish":
+        return nn.Hardswish()
+    if name == "LeakyReLU":
+        return nn.LeakyReLU()
+    if name == "LogSigmoid":
+        return nn.LogSigmoid()
+    if name == "PReLU":
+        return nn.PReLU()
+    if name == "ReLU":
+        return nn.ReLU()
+    if name == "ReLU6":
+        return nn.ReLU6()
+    if name == "RReLU":
+        return nn.RReLU()
+    if name == "SELU":
+        return nn.SELU()
+    if name == "CELU":
+        return nn.CELU()
+    if name == "GELU":
+        return nn.GELU()
+    if name == "Sigmoid":
+        return nn.Sigmoid()
+    if name == "SiLU":
+        return nn.SiLU()
+    if name == "Mish":
+        return nn.Mish()
+    if name == "Sofplus":
+        return nn.Softplus()
+    if name == "Softshrink":
+        return nn.Softshrink()
+    if name == "Softsign":
+        return nn.Softsign()
+    if name == "Tanh":
+        return nn.Tanh()
+    if name == "Tanhshrink":
+        return nn.Tanhshrink()
+    if name == "GLU":
+        return nn.GLU()
+    if name == "Softmin":
+        return nn.Softmin()
+    if name == "Softmax":
+        return nn.Softmax()
+    if name == "Softmax2d":
+        return nn.Softmax2d()
+    if name == "LogSoftmax":
+        return nn.LogSoftmax()
+    raise ValueError()
+
+
 def get_normal_fun(name):
     if name == "BatchNorm1d":
         return nn.BatchNorm1d
+    if name == "BatchNorm2d":
+        return nn.BatchNorm2d
+    if name == "BatchNorm3d":
+        return nn.BatchNorm3d
+    if name == "GroupNorm":
+        return lambda val: nn.GroupNorm(5, val)
+    if name == "SyncBatchNorm":
+        return nn.SyncBatchNorm
+    if name == "InstanceNorm1d":
+        return nn.InstanceNorm1d
+    if name == "InstanceNorm2d":
+        return nn.InstanceNorm2d
+    if name == "InstanceNorm3d":
+        return nn.InstanceNorm3d
+    if name == "LayerNorm":
+        return nn.LayerNorm
+    if name == "LocalResponseNorm":
+        return nn.LocalResponseNorm
+    if name == "RMSNorm":
+        return nn.RMSNorm
     raise ValueError()
 
 
@@ -91,8 +169,6 @@ class Pipeline(nn.Module):
         self,
         epochsNum,
         batchSize,
-        doNormal,
-        normal,
         precision=0,
         precisionBest=False,
         version=1,
@@ -139,8 +215,6 @@ class Pipeline(nn.Module):
 
                 SCALER.scale(batchLoss).backward()
                 SCALER.unscale_(self.optimizer)
-                if doNormal:
-                    normal
                 SCALER.step(self.optimizer)
                 SCALER.update()
 
@@ -208,7 +282,7 @@ class Pipeline(nn.Module):
             lossPrev = lossAvg
 
         if save and precisionBest is not True:
-            torch.save(self.model.state_dict(), f"models/pacman_model_V{version}-{epochsNum}.pth")
+            torch.save(self.model.state_dict(), f"models/pacman_model_V{version}.pth")
             print("Model saved !")
 
         print("Finished training your network model...")
@@ -223,8 +297,10 @@ if __name__ == "__main__":
     try:
         # Dataset
         allDoNormalPos = [True, False]
-        for doNormalPos in allDoNormalPos:
-            for viewDistance in range(1, 10 + 1):
+        for d1 in range(len(allDoNormalPos)):
+            doNormalPos = allDoNormalPos[d1]
+            for d2 in range(1, 10 + 1):
+                viewDistance = d2
                 dataset = PacmanDataset(
                     path,
                     doNormalPos=doNormalPos,
@@ -234,34 +310,88 @@ if __name__ == "__main__":
                 # Neural Network
                 inputSize = get_tensor_size(viewDistance)
                 outputSize = 5
-                for layersNum in range(1, 10 + 1):
-                    for layer1Fact in range(100, 1000 + 1):
-                        layer1Size = inputSize * layer1Fact // 100
-                        allLayerSizeFunName = ["two_thirds"]
-                        for layerSizeFunName in allLayerSizeFunName:
+                for n1 in range(1, 10 + 1):
+                    layersNum = n1
+                    for n2 in range(100, 1000 + 1):
+                        layer1Size = inputSize * n2 // 100
+                        allLayerSizeFunName = [
+                            "two_thirds",
+                            "half",
+                            "diamond",
+                            "linear"
+                        ]
+                        for n3 in range(len(allLayerSizeFunName)):
+                            layerSizeFunName = allLayerSizeFunName[n3]
                             layer_size_fun = get_layer_size_fun(layerSizeFunName)
-                            allLayerFunName = ["Linear"]
-                            for layerFunName in allLayerFunName:
+                            allLayerFunName = [
+                                "Linear",
+                            ]
+                            for n4 in range(len(allLayerFunName)):
+                                layerFunName = allLayerFunName[n4]
                                 layer_fun = get_layer_fun(layerFunName)
                                 allDoNormalNet = [True, False]
-                                for doNormalNet in allDoNormalNet:
+                                for n5 in range(len(allDoNormalNet)):
+                                    doNormalNet = allDoNormalNet[n5]
                                     if doNormalNet:
-                                        allNormalFunName = ["BatchNorm1d"]
+                                        allNormalFunName = [
+                                            "BatchNorm1d",
+                                            "BatchNorm2d",
+                                            "BatchNorm3d",
+                                            "GroupNorm",
+                                            "SyncBatchNorm",
+                                            "InstanceNorm1d",
+                                            "InstanceNorm2d",
+                                            "InstanceNorm3d",
+                                            "LayerNorm",
+                                            "LocalResponseNorm",
+                                            "RMSNorm",
+                                        ]
                                     else:
                                         allNormalFunName = ["BatchNorm1d"]
-                                    for normalFunName in allNormalFunName:
+                                    for n6 in range(len(allNormalFunName)):
+                                        normalFunName = allNormalFunName[n6]
                                         normal_fun = get_normal_fun(normalFunName)
-                                        allActionName = ["GELU"]
-                                        for actionName in allActionName:
+                                        allActionName = [
+                                            "ELU",
+                                            "Hardshrink",
+                                            "Hardsigmoid",
+                                            "Hardtanh",
+                                            "Hardswish",
+                                            "LeakyReLU",
+                                            "LogSigmoid",
+                                            "PReLU",
+                                            "ReLU",
+                                            "ReLU6",
+                                            "RReLU",
+                                            "SELU",
+                                            "CELU",
+                                            "GELU",
+                                            "Sigmoid",
+                                            "SiLU",
+                                            "Mish",
+                                            "Sofplus",
+                                            "Softshrink",
+                                            "Softsign",
+                                            "Tanh",
+                                            "Tanhshrink",
+                                            "GLU",
+                                            "Softmin",
+                                            "Softmax",
+                                            "Softmax2d",
+                                            "LogSoftmax",
+                                        ]
+                                        for n7 in range(len(allActionName)):
+                                            actionName = allActionName[n7]
                                             action = get_action(actionName)
                                             allDoDropout = [True, False]
-                                            for doDropout in allDoDropout:
+                                            for n8 in range(len(allDoDropout)):
+                                                doDropout = allDoDropout[n8]
                                                 if doDropout:
                                                     rangeDropoutRate = 99
                                                 else:
                                                     rangeDropoutRate = 0
-                                                for dropoutRateFact in range(rangeDropoutRate + 1):
-                                                    dropoutRate = dropoutRateFact / 100
+                                                for n9 in range(rangeDropoutRate + 1):
+                                                    dropoutRate = n9 / 100
                                                     model = PacmanNetwork(
                                                         inputSize,
                                                         outputSize,
@@ -277,30 +407,80 @@ if __name__ == "__main__":
                                                     ).to(DEVICE)
 
                                                     # Training model
-                                                    for learningRateFact in range(1, 100 + 1):
-                                                        learningRate = learningRateFact / 10000
-                                                        allCriterion = [nn.CrossEntropyLoss()]
-                                                        for criterion in allCriterion:
+                                                    for p1 in range(1, 100 + 1):
+                                                        learningRate = p1 / 10000
+                                                        allCriterion = [
+                                                            nn.L1Loss(),
+                                                            nn.MSELoss(),
+                                                            nn.CrossEntropyLoss(),
+                                                            nn.CTCLoss(),
+                                                            nn.NLLLoss(),
+                                                            nn.PoissonNLLLoss(),
+                                                            nn.GaussianNLLLoss(),
+                                                            nn.KLDivLoss(),
+                                                            nn.BCELoss(),
+                                                            nn.BCEWithLogitsLoss(),
+                                                            nn.MarginRankingLoss(),
+                                                            nn.HingeEmbeddingLoss(),
+                                                            nn.MultiLabelMarginLoss(),
+                                                            nn.HuberLoss(),
+                                                            nn.SmoothL1Loss(),
+                                                            nn.SoftMarginLoss(),
+                                                            nn.MultiLabelSoftMarginLoss(),
+                                                            nn.CosineEmbeddingLoss(),
+                                                            nn.MultiMarginLoss(),
+                                                            nn.TripletMarginLoss(),
+                                                            nn.TripletMarginWithDistanceLoss(),
+                                                        ]
+                                                        for p2 in range(len(allCriterion)):
+                                                            criterion = allCriterion[p2]
                                                             allOptimizer = []
-                                                            allOptimizer.extend([optim.AdamW(model.parameters(), lr=learningRate, weight_decay=decay / 1000)] for decay in range(0, 100 + 1, 5))
-                                                            for optimizer in allOptimizer:
+                                                            allOptimizer.extend([optim.Adadelta(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.Adafactor(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.Adagrad(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.Adam(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.AdamW(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.SparseAdam(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.Adamax(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.ASGD(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.LBFGS(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.NAdam(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.RAdam(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.RMSprop(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend([optim.Rprop(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)])
+                                                            allOptimizer.extend(([optim.SGD(model.parameters(), lr=learningRate, weight_decay=decay / 100) for decay in range(10 + 1)]))
+                                                            for p3 in range(len(allOptimizer)):
+                                                                optimizer = allOptimizer[p3]
                                                                 allDoScheduler = [True, False]
-                                                                for doScheduler in allDoScheduler:
+                                                                for p4 in range(len(allDoScheduler)):
+                                                                    doScheduler = allDoScheduler[p4]
                                                                     if doScheduler:
                                                                         allScheduler = []
+                                                                        allScheduler.extend([optim.lr_scheduler.LRScheduler(optimizer)])
+                                                                        allScheduler.extend([optim.lr_scheduler.MultiplicativeLR(optimizer)])
+                                                                        allScheduler.extend([optim.lr_scheduler.StepLR(optimizer, step) for step in range(10)])
+                                                                        allScheduler.extend([optim.lr_scheduler.ConstantLR(optimizer, factor=factor / 10) for factor in range(10)])
+                                                                        allScheduler.extend([optim.lr_scheduler.LinearLR(optimizer, start_factor=factor / 10) for factor in range(10)])
+                                                                        allScheduler.extend([optim.lr_scheduler.ExponentialLR(optimizer, gamma / 10) for gamma in range(10)])
+                                                                        allScheduler.extend([optim.lr_scheduler.PolynomialLR(optimizer, power=power) for power in range(5)])
+                                                                        allScheduler.extend([optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max) for T_max in range(10)])
                                                                         allScheduler.extend([optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor / 10, patience=patience) for factor in range(10) for patience in range(10)])
+                                                                        allScheduler.extend([optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0) for T_0 in range(10)])
                                                                     else:
                                                                         allScheduler = [optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)]
-                                                                    for scheduler in allScheduler:
-                                                                        for validSplitFact in range(9 + 1):
-                                                                            validSplit = validSplitFact / 10
+                                                                    for p5 in range(len(allScheduler)):
+                                                                        scheduler = allScheduler[p5]
+                                                                        for p6 in range(9 + 1):
+                                                                            validSplit = p6 / 10
                                                                             allPrecisionBest = [True, False]
-                                                                            for precisionBest in allPrecisionBest:
+                                                                            for p7 in range(len(allPrecisionBest)):
+                                                                                precisionBest = allPrecisionBest[p7]
                                                                                 if precisionBest:
                                                                                     rangePatienceLimit = 100
                                                                                 else:
                                                                                     rangePatienceLimit = 0
-                                                                                for patienceLimit in range(0, rangePatienceLimit + 1, 10):
+                                                                                for p8 in range(0, rangePatienceLimit + 1, 10):
+                                                                                    patienceLimit = p8
                                                                                     pipeline = Pipeline(
                                                                                         path,
                                                                                         dataset,
@@ -314,59 +494,51 @@ if __name__ == "__main__":
                                                                                     )
 
                                                                                     # Training
-                                                                                    for epochsNum in range(0, 1000 + 1, 5):
-                                                                                        if epochsNum == 0:
+                                                                                    for t1 in range(0, 1000 + 1, 5):
+                                                                                        if t1 == 0:
                                                                                             continue
-                                                                                        for batchSizeFact in range(15 + 1):
-                                                                                            batchSize = 2**batchSizeFact
-                                                                                            allDoNormalTrain = [True, False]
-                                                                                            for doNormalTrain in allDoNormalTrain:
-                                                                                                if doNormalTrain:
-                                                                                                    allNormal = [torch.nn.utils.clip_grad_norm_(model.parameters(), i / 10) for i in range(100 + 1)]
-                                                                                                else:
-                                                                                                    allNormal = [torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)]
-                                                                                                for normal in allNormal:
-                                                                                                    for precisionFact in range(10):
-                                                                                                        precision = precisionFact / 1000000
-                                                                                                        for i in range(testNum + 1):
-                                                                                                            version = VERSION
-                                                                                                            save = True
+                                                                                        epochsNum = t1
+                                                                                        for t2 in range(15 + 1):
+                                                                                            batchSize = 2**t2
+                                                                                            for t3 in range(10):
+                                                                                                precision = t3 / 1000000
+                                                                                                for test in range(testNum + 1):
+                                                                                                    version = f"{d1}.{d2}-{n1}.{n2}.{n3}.{n4}.{n5}.{n6}.{n7}.{n8}.{n9}-{p1}.{p2}.{p3}.{p4}.{p5}.{p6}.{p7}.{p8}-{t1}.{t2}.{t3}-{test}"
+                                                                                                    save = True
 
-                                                                                                            pipeline.train(
-                                                                                                                epochsNum,
-                                                                                                                batchSize,
-                                                                                                                doNormalTrain,
-                                                                                                                normal,
-                                                                                                                precision=precision,
-                                                                                                                precisionBest=precisionBest,
-                                                                                                                version=version,
-                                                                                                                save=save
-                                                                                                            )
+                                                                                                    pipeline.train(
+                                                                                                        epochsNum,
+                                                                                                        batchSize,
+                                                                                                        precision=precision,
+                                                                                                        precisionBest=precisionBest,
+                                                                                                        version=version,
+                                                                                                        save=save
+                                                                                                    )
 
-                                                                                                            if save:
-                                                                                                                dict = {
-                                                                                                                    'dataset': {
-                                                                                                                        'doNormalPos': doNormalPos,
-                                                                                                                        'viewDistance': viewDistance,
-                                                                                                                    },
-                                                                                                                    'network': {
-                                                                                                                        'inputSize': inputSize,
-                                                                                                                        'outputSize': outputSize,
-                                                                                                                        'layersNum': layersNum,
-                                                                                                                        'layer1Size': layer1Size,
-                                                                                                                        'layerSizeFunName': layerSizeFunName,
-                                                                                                                        'layerFunName': layerFunName,
-                                                                                                                        'doNormal': doNormalNet,
-                                                                                                                        'normalFunName': normalFunName,
-                                                                                                                        'actionName': actionName,
-                                                                                                                        'doDropout': doDropout,
-                                                                                                                        'dropoutRate': dropoutRate,
-                                                                                                                    },
-                                                                                                                }
+                                                                                                    if save:
+                                                                                                        dict = {
+                                                                                                            'dataset': {
+                                                                                                                'doNormalPos': doNormalPos,
+                                                                                                                'viewDistance': viewDistance,
+                                                                                                            },
+                                                                                                            'network': {
+                                                                                                                'inputSize': inputSize,
+                                                                                                                'outputSize': outputSize,
+                                                                                                                'layersNum': layersNum,
+                                                                                                                'layer1Size': layer1Size,
+                                                                                                                'layerSizeFunName': layerSizeFunName,
+                                                                                                                'layerFunName': layerFunName,
+                                                                                                                'doNormal': doNormalNet,
+                                                                                                                'normalFunName': normalFunName,
+                                                                                                                'actionName': actionName,
+                                                                                                                'doDropout': doDropout,
+                                                                                                                'dropoutRate': dropoutRate,
+                                                                                                            },
+                                                                                                        }
 
-                                                                                                                print("Writing model config...")
-                                                                                                                with open(f"models/pacman_model_V{version}-{epochsNum}.json", "w") as file:
-                                                                                                                    json.dump(dict, file)
-                                                                                                                print("Finished writing model config...")
+                                                                                                        print("Writing model config...")
+                                                                                                        with open(f"models/pacman_model_V{version}.json", "w") as file:
+                                                                                                            json.dump(dict, file)
+                                                                                                        print("Finished writing model config...")
     except:
         print()
