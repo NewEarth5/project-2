@@ -10,67 +10,86 @@ from pacman_module.ghostAgents import SmartyGhost
 
 from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
-from train import VERSION, get_layer_size_fun, get_action, get_layer_fun, get_normal_fun
-
-USEDVERSION = f"V{VERSION}-{500}"
-# USEDVERSION = "V1-100"
-
-modelPath = f"models/pacman_model_{USEDVERSION}.pth"
+from train import get_layer_size_fun, get_action, get_layer_fun, get_normal_fun, get_tensor_size, get_best
 
 
-with open(f"models/pacman_model_{USEDVERSION}.json", "r") as file:
-    config = json.load(file)
+def get_config(folder, version):
+    with open(f"models/{folder}/pacman_model_V{version}.json", "r") as file:
+        config = json.load(file)
+
+    print(f"{'=' * 60}")
+    print(f"Best model from folder {folder}:")
+    print(f"  Model {config['trial_id']}")
+    print(f"  - Loss of {config['performance']['loss']:.4f}")
+    print(f"  - Accuracy of {config['performance']['accuracy']:.2f}%")
+    print(f"{'=' * 60}")
+
+    return config
 
 
-SEED = 42
-random.seed(SEED)
-np.random.seed(SEED)
+def get_PacmanNetwork(config):
+    inputSize = get_tensor_size(config['dataset']['viewDistance'])
+    outputSize = 5
+    layersNum = config['network']['layersNum']
+    layer1Size = int(inputSize * config['network']['layer1SizeMultiplier'])
+    layer_size_fun = get_layer_size_fun(config['network']['layerSizeFun'])
+    layer_fun = get_layer_fun(config['network']['layerFun'])
+    doNormal = config['network']['doNormal']
+    normal_fun = get_normal_fun(config['network']['normalFun'])
+    action = get_action(config['network']['action'])
+    doDropout = config['network']['doDropout']
+    dropoutRate = config['network']['dropoutRate']
+
+    model = PacmanNetwork(
+        inputSize,
+        outputSize,
+        layersNum,
+        layer1Size,
+        layer_size_fun,
+        layer_fun,
+        doNormal,
+        normal_fun,
+        action,
+        doDropout,
+        dropoutRate
+    )
+    return model
 
 
-# Neural Network
-inputSize = config['network']['inputSize']
-outputSize = config['network']['outputSize']
-layersNum = config['network']['layersNum']
-layer1Size = config['network']['layer1Size']
-layer_size_fun = get_layer_size_fun(config['network']['layerSizeFunName'])
-layer_fun = get_layer_fun(config['network']['layerFunName'])
-doNormal = config['network']['doNormal']
-normal_fun = get_normal_fun(config['network']['normalFunName'])
-action = get_action(config['network']['actionName'])
-doDropout = config['network']['doDropout']
-dropoutRate = config['network']['dropoutRate']
+def get_PacmanAgent(model, config):
+    doNormalPos = config['dataset']['doNormalPos']
+    viewDistance = config['dataset']['viewDistance']
+    pacman_agent = PacmanAgent(model, doNormalPos, viewDistance)
+    return pacman_agent
 
-model = PacmanNetwork(
-    inputSize,
-    outputSize,
-    layersNum,
-    layer1Size,
-    layer_size_fun,
-    layer_fun,
-    doNormal,
-    normal_fun,
-    action,
-    doDropout,
-    dropoutRate
-)
-model.load_state_dict(torch.load(modelPath, map_location="cpu"))
-model.eval()
 
-# Pacman Agent
-doNormalPos = config['dataset']['doNormalPos']
-viewDistance = config['dataset']['viewDistance']
+def run(folder=1, version=1):
+    config = get_config(folder, version)
 
-pacman_agent = PacmanAgent(model, doNormalPos, viewDistance)
+    SEED = 42
+    random.seed(SEED)
+    np.random.seed(SEED)
 
-score, elapsed_time, nodes = runGame(
-    layout_name="test_layout",
-    pacman=pacman_agent,
-    ghosts=[SmartyGhost(1)],
-    beliefstateagent=None,
-    displayGraphics=True,
-    expout=0.0,
-    hiddenGhosts=False,
-)
+    model = get_PacmanNetwork(config)
+    model.load_state_dict(torch.load(f"models/{folder}/pacman_model_V{version}.pth", map_location="cpu"))
+    model.eval()
+    pacman_agent = get_PacmanAgent(model, config)
 
-print(f"Score: {score}")
-print(f"Computation time: {elapsed_time}")
+    score, elapsed_time, nodes = runGame(
+        layout_name="test_layout",
+        pacman=pacman_agent,
+        ghosts=[SmartyGhost(1)],
+        beliefstateagent=None,
+        displayGraphics=True,
+        expout=0.0,
+        hiddenGhosts=False,
+    )
+
+    print(f"Score: {score}")
+    print(f"Computation time: {elapsed_time}")
+
+
+if __name__ == "__main__":
+    folder = 4
+    version = get_best(folder, index=2)
+    run(folder, version)
