@@ -3,14 +3,14 @@ import random
 import json
 
 import torch
-from torch import nn
 
 from pacman_module.pacman import runGame
 from pacman_module.ghostAgents import SmartyGhost
 
 from architecture import PacmanNetwork
 from pacmanagent import PacmanAgent
-from train import get_layer_size_fun, get_action, get_layer_fun, get_normal_fun, get_best
+from train import get_layer_size_fun, get_action, get_layer_fun, get_normal_fun
+from train import get_best
 
 
 def get_config(folder, version):
@@ -81,7 +81,12 @@ def run(folder, version):
     np.random.seed(SEED)
 
     model = get_PacmanNetwork(config, folder)
-    model.load_state_dict(torch.load(f"models/{folder}/pacman_model_V{version}.pth", map_location="cpu"))
+    model.load_state_dict(
+        torch.load(
+            f"models/{folder}/pacman_model_V{version}.pth",
+            map_location="cpu"
+        )
+    )
     model.eval()
     pacman_agent = get_PacmanAgent(model, config)
 
@@ -100,6 +105,6 @@ def run(folder, version):
 
 
 if __name__ == "__main__":
-    folder = 7
-    version = get_best(folder, index=0)
+    folder = 8
+    version = get_best(folder, index=5)
     run(folder, version)
