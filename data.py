@@ -37,8 +37,8 @@ def get_tensor_size(viewDistance):
     size = 0
     size += 2                                       # Pacman's position
     size += 2                                       # Ghost's position
-    size += 2 * viewDistance * (viewDistance + 1)   # Wall radar
-    size += 2 * viewDistance * (viewDistance + 1)   # Food radar
+    # size += 2 * viewDistance * (viewDistance + 1)   # Wall radar
+    # size += 2 * viewDistance * (viewDistance + 1)   # Food radar
     size += 1                                       # Number of food
     size += 4                                       # Pacman's direction
     size += 4                                       # Wall in direction
@@ -46,8 +46,10 @@ def get_tensor_size(viewDistance):
     size += 4                                       # Ghost amount in direction
     size += 5                                       # Legal moves
     size += 5                                       # Danger detection
-    size += 2                                       # Food cluster
+    # size += 2                                       # Food cluster
     size += 2                                       # BFS food dist and num
+    size += (viewDistance * 2 + 1)**2 * 3           # Full radar
+    size += 5                                       # Escape routes after move
     return size
 
 
@@ -82,19 +84,19 @@ def count_direction(truthFun, pacmanPos, walls, normalise=1):
     return output
 
 
-def diamond_indexes(n):
-    """
-    Indexes to access a 2D array in a diamond pattern of size n.
-    """
-    output = []
+# def diamond_indexes(n):
+#     """
+#     Indexes to access a 2D array in a diamond pattern of size n.
+#     """
+#     output = []
 
-    for r in range(n):
-        for c in range(1, n - r + 1):
-            output.append((r, c))
-            output.append((c, -r))
-            output.append((-r, -c))
-            output.append((-c, r))
-    return output
+#     for r in range(n):
+#         for c in range(1, n - r + 1):
+#             output.append((r, c))
+#             output.append((c, -r))
+#             output.append((-r, -c))
+#             output.append((-c, r))
+#     return output
 
 
 def is_outbounds(x, y, walls):
@@ -117,16 +119,32 @@ def do_if_legal(legalActions, trueFun, falseFun):
     return output
 
 
-def food_cluster(foodPos, pacmanPos, walls):
-    output = []
-    if foodPos:
-        foodDist = [manhattanDistance(pacmanPos, fpos) for fpos in foodPos]
-        output.extend([
-            min(foodDist) / max(walls.width, walls.height),
-            np.mean(foodDist[:min(5, len(foodPos))]) / max(walls.width, walls.height),
-        ])
+# def food_cluster(foodPos, pacmanPos, walls):
+#     output = []
+#     if foodPos:
+#         foodDist = [manhattanDistance(pacmanPos, fpos) for fpos in foodPos]
+#         output.extend([
+#             min(foodDist) / max(walls.width, walls.height),
+#             np.mean(foodDist[:min(5, len(foodPos))]) / max(walls.width, walls.height),
+#         ])
 
-    return output
+#     return output
+
+
+def radar(pacmanPos, walls, food, ghostPos, viewDistance=3):
+    pattern = []
+    for dy in range(-viewDistance, viewDistance + 1):
+        for dx in range(-viewDistance, viewDistance + 1):
+            x, y = pacmanPos[0] + dx, pacmanPos[1] + dy
+            if is_outbounds(x, y, walls):
+                pattern.extend([1, 0, 0])
+            else:
+                pattern.extend([
+                    int(walls[x][y]),
+                    int(food[x][y]),
+                    int(ghostPos[0] == x and ghostPos[1] == y),
+                ])
+    return pattern
 
 
 def distance_bfs(start, targets, walls, max_depth=10):
@@ -159,6 +177,28 @@ def distance_bfs(start, targets, walls, max_depth=10):
     return closest, count
 
 
+def escape_routes(pacmanPos, walls, state):
+    output = []
+    for action in list(ACTION_INDEX.keys()):
+        if state.isLegalAction(action=action):
+            stateNext = state.generatePacmanSuccessor(action)
+            pacmanPosNext = stateNext.getPacmanPosition()
+            routes = 0
+
+            for dx, dy in DIRECTIONS_COORD:
+                x = pacmanPosNext[0] + dx
+                y = pacmanPosNext[1] + dy
+
+                if not is_illegal(x, y, walls):
+                    routes += 1
+
+            output.append(routes)
+        else:
+            output.append(0)
+
+    return output
+
+
 def state_to_tensor(state, doNormalPos, viewDistance):
     """
     Build the input of your network.
@@ -172,7 +212,7 @@ def state_to_tensor(state, doNormalPos, viewDistance):
     """
     features = []
 
-    diamondInd = diamond_indexes(viewDistance)
+    # diamondInd = diamond_indexes(viewDistance)
 
     pacmanState = state.getPacmanState()
     legalActions = state.getLegalPacmanActions()
@@ -204,21 +244,21 @@ def state_to_tensor(state, doNormalPos, viewDistance):
         ghostCloPosNorm[1],
     ])
 
-    for i, j in diamondInd:
-        x = pacmanPos[0] + i
-        y = pacmanPos[1] + j
-        if is_outbounds(x, y, walls):
-            features.append(float(False))
-        else:
-            features.append(float(walls[x][y]))
+    # for i, j in diamondInd:
+    #     x = pacmanPos[0] + i
+    #     y = pacmanPos[1] + j
+    #     if is_outbounds(x, y, walls):
+    #         features.append(float(False))
+    #     else:
+    #         features.append(float(walls[x][y]))
 
-    for i, j in diamondInd:
-        x = pacmanPos[0] + i
-        y = pacmanPos[1] + j
-        if is_outbounds(x, y, walls):
-            features.append(float(False))
-        else:
-            features.append(float(food[x][y]))
+    # for i, j in diamondInd:
+    #     x = pacmanPos[0] + i
+    #     y = pacmanPos[1] + j
+    #     if is_outbounds(x, y, walls):
+    #         features.append(float(False))
+    #     else:
+    #         features.append(float(food[x][y]))
 
     features.append(foodNum)
 
@@ -273,13 +313,17 @@ def state_to_tensor(state, doNormalPos, viewDistance):
     )
     features.extend(danger)
 
-    features.extend(food_cluster(foodPos, pacmanPos, walls))
+    # features.extend(food_cluster(foodPos, pacmanPos, walls))
 
     foodDistClo, foodReachNum = distance_bfs(pacmanPos, foodPos, walls)
     features.extend([
-        foodDistClo if foodDistClo != float('inf') else (walls.height + walls.width),
+        foodDistClo if foodDistClo != np.inf else (walls.height + walls.width),
         foodReachNum / foodNum,
     ])
+
+    features.extend(radar(pacmanPos, walls, food, ghostCloPos, viewDistance))
+
+    features.extend(escape_routes(pacmanPos, walls, state))
 
     return torch.tensor(features, dtype=torch.float32)
 
