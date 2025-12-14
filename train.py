@@ -1,6 +1,7 @@
 import os
 import json
 import random
+from random import choice
 import traceback
 
 import numpy as np
@@ -17,9 +18,9 @@ USE_CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if USE_CUDA else "cpu")
 SCALER = torch.amp.GradScaler(enabled=USE_CUDA)
 
-PARAMETERS = {
+PARAM = {
     'dataset': {
-        'doNormalPos': [False],
+        'doNormalPos': [True],
         'viewDistance': [4, 5, 6],
     },
     'network': {
@@ -48,45 +49,76 @@ PARAMETERS = {
         'batchSize': [512],
     }
 }
-# PARAMETERS = {
+# PARAM = {
 #     'dataset': {
 #         'doNormalPos': [False],
-#         'viewDistance': [5],
+#         'viewDistance': [4, 4, 4, 5, 5],
 #     },
 #     'network': {
-#         'layersNum': [5],
-#         'layer1SizeMultiplier': [5.0],
-#         'layerSizeFun': ['diamond'],
+#         'layersNum': [4, 4, 4, 5, 7],
+#         'layer1SizeMultiplier': [4, 4, 4, 5, 7],
+#         'layerSizeFun': ["linear", "linear", "linear", "linear", "half"],
 #         'layerFun': ['Linear'],
-#         'doNormal': [False],
+#         'doNormal': [True],
 #         'normalFun': ['BatchNorm1d'],
-#         'action': ['LeakyReLU'],
+#         'action': ["GELU", "GELU", "SiLU", "SiLU", "SiLU"],
 #         'doDropout': [True],
-#         'dropoutRate': [0.3],
+#         'dropoutRate': [0.2, 0.2, 0.2, 0.2, 0.3],
 #     },
 #     'training': {
 #         'learningRate': [0.0005],
 #         'criterion': ['CrossEntropyLoss'],
-#         'optimizer': ['Adam'],
-#         'weightDecay': [0.0],
-#         'doScheduler': [True],
-#         'schedulerType': ['StepLR'],
-#         'validSplit': [0.1],
-#         'precision': [0.000001],
+#         'optimizer': ["AdamW", "AdamW", "AdamW", "Adam", "Adam"],
+#         'weightDecay': [0, 0, 0, 0.001, 0.001],
+#         'doScheduler': [False],
+#         'schedulerType': ["StepLR"],
+#         'validSplit': [0.2],
+#         'precision': [0.0000001],
 #         'precisionBest': [2],
-#         'patienceLimit': [30],
-#         'epochsNum': [250],
+#         'patienceLimit': [50, 50, 50, 75, 75],
+#         'epochsNum': [1000],
 #         'batchSize': [512],
 #     }
 # }
+PARAM = {
+    'dataset': {
+        'doNormalPos': [False],
+        'viewDistance': [4],
+    },
+    'network': {
+        'layersNum': [4],
+        'layer1SizeMultiplier': [4],
+        'layerSizeFun': ['linear'],
+        'layerFun': ['Linear'],
+        'doNormal': [True],
+        'normalFun': ['BatchNorm1d'],
+        'action': ['GELU'],
+        'doDropout': [True],
+        'dropoutRate': [0.2],
+    },
+    'training': {
+        'learningRate': [0.0005],
+        'criterion': ['CrossEntropyLoss'],
+        'optimizer': ['AdamW'],
+        'weightDecay': [0.0],
+        'doScheduler': [False],
+        'schedulerType': ['StepLR'],
+        'validSplit': [0.2],
+        'precision': [0.000001],
+        'precisionBest': [2],
+        'patienceLimit': [50],
+        'epochsNum': [1000],
+        'batchSize': [512],
+    }
+}
 
 
 def get_layer_size_fun(name):
     layerSize = {
-        "two_thirds": lambda prev, i, num: prev * 2 // 3,
-        "half": lambda prev, i, num: prev // 2,
-        "diamond": lambda prev, i, num: prev * 2 if i <= num // 2 else prev // 2,
-        "linear": lambda prev, i, num: prev,
+        "two_thirds": lambda pre, i, num: pre * 2 // 3,
+        "half": lambda pre, i, num: pre // 2,
+        "diamond": lambda pre, i, num: pre * 2 if i <= num // 2 else pre // 2,
+        "linear": lambda pre, i, num: pre,
     }
     if name in layerSize:
         return layerSize[name]
@@ -183,33 +215,90 @@ def create_criterion(name):
 def create_optimiser(name, parameters, learningRate, decay):
     """Factory function to create optimizer - creates on demand"""
     if name == "Adadelta":
-        return optim.Adadelta(parameters, lr=learningRate, weight_decay=decay)
+        return optim.Adadelta(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "Adafactor":
-        return optim.Adafactor(parameters, lr=learningRate, weight_decay=decay)
+        return optim.Adafactor(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "Adagrad":
-        return optim.Adagrad(parameters, lr=learningRate, weight_decay=decay)
+        return optim.Adagrad(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "Adam":
-        return optim.Adam(parameters, lr=learningRate, weight_decay=decay)
+        return optim.Adam(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "AdamW":
-        return optim.AdamW(parameters, lr=learningRate, weight_decay=decay)
+        return optim.AdamW(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "SparseAdam":
-        return optim.SparseAdam(parameters, lr=learningRate, weight_decay=decay)
+        return optim.SparseAdam(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "Adamax":
-        return optim.Adamax(parameters, lr=learningRate, weight_decay=decay)
+        return optim.Adamax(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "ASGD":
-        return optim.ASGD(parameters, lr=learningRate, weight_decay=decay)
+        return optim.ASGD(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "LBFGS":
-        return optim.LBFGS(parameters, lr=learningRate, weight_decay=decay)
+        return optim.LBFGS(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "NAdam":
-        return optim.NAdam(parameters, lr=learningRate, weight_decay=decay)
+        return optim.NAdam(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "RAdam":
-        return optim.RAdam(parameters, lr=learningRate, weight_decay=decay)
+        return optim.RAdam(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "RMSprop":
-        return optim.RMSprop(parameters, lr=learningRate, weight_decay=decay)
+        return optim.RMSprop(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "Rprop":
-        return optim.Rprop(parameters, lr=learningRate, weight_decay=decay)
+        return optim.Rprop(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay
+        )
     if name == "SGD":
-        return optim.SGD(parameters, lr=learningRate, weight_decay=decay, momentum=0.9)
+        return optim.SGD(
+            parameters,
+            lr=learningRate,
+            weight_decay=decay,
+            momentum=0.9
+        )
     raise ValueError(f"Unknown optimizer: {name}")
 
 
@@ -223,21 +312,48 @@ def create_scheduler(name, optimizer, doScheduler):
     if name == "MultiplicativeLR":
         return optim.lr_scheduler.MultiplicativeLR(optimizer),
     if name == "StepLR":
-        return optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+        return optim.lr_scheduler.StepLR(
+            optimizer,
+            step_size=30,
+            gamma=0.1
+        )
     if name == "ConstantLR":
-        return optim.lr_scheduler.ConstantLR(optimizer, factor=0.5)
+        return optim.lr_scheduler.ConstantLR(
+            optimizer,
+            factor=0.5
+        )
     if name == "LinearLR":
-        return optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5)
+        return optim.lr_scheduler.LinearLR(
+            optimizer,
+            start_factor=0.5
+        )
     if name == "ExponentialLR":
-        return optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+        return optim.lr_scheduler.ExponentialLR(
+            optimizer,
+            gamma=0.9
+        )
     if name == "PolynomialLR":
-        return optim.lr_scheduler.PolynomialLR(optimizer, power=3)
+        return optim.lr_scheduler.PolynomialLR(
+            optimizer,
+            power=3
+        )
     if name == "CosineAnnealingLR":
-        return optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
+        return optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=50
+        )
     if name == "ReduceLROnPlateau":
-        return optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+        return optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=0.5,
+            patience=5
+        )
     if name == "CosineAnnealingWarmRestarts":
-        return optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50)
+        return optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=50
+        )
     raise ValueError(f"Unknown scheduler: {name}")
 
 
@@ -275,6 +391,7 @@ class Pipeline(nn.Module):
         self.criterion = criterion()
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.clipping = torch.nn.utils.clip_grad_norm_
 
         self.bestLoss = float('inf')
         self.bestAcc = 0
@@ -330,6 +447,7 @@ class Pipeline(nn.Module):
                     batchLoss = self.criterion(batchOutputs, batchActions)
 
                 SCALER.scale(batchLoss).backward()
+                self.clipping(self.model.parameters(), max_norm=1.0)
                 SCALER.unscale_(self.optimizer)
                 SCALER.step(self.optimizer)
                 SCALER.update()
@@ -344,7 +462,8 @@ class Pipeline(nn.Module):
 
             if (epoch + 1) % 10 == 0:
                 print(f"Epoch [{epoch + 1}/{epochsNum}]")
-                print(f"  Train Loss: {trainLossAvg:.4f}, Train Acc: {trainAcc:.2f}%")
+                print(f"  Train Loss: {trainLossAvg:.4f}", end="")
+                print(f", Train Acc: {trainAcc:.2f}%")
 
             if len(validLoader) != 0:
                 self.model.eval()
@@ -354,12 +473,24 @@ class Pipeline(nn.Module):
 
                 with torch.no_grad():
                     for batchInputs, batchActions in validLoader:
-                        batchInputs = batchInputs.to(DEVICE, non_blocking=USE_CUDA)
-                        batchActions = batchActions.to(DEVICE, non_blocking=USE_CUDA)
+                        batchInputs = batchInputs.to(
+                            DEVICE,
+                            non_blocking=USE_CUDA
+                        )
+                        batchActions = batchActions.to(
+                            DEVICE,
+                            non_blocking=USE_CUDA
+                        )
 
-                        with torch.amp.autocast(device_type="cuda", enabled=USE_CUDA):
+                        with torch.amp.autocast(
+                            device_type="cuda",
+                            enabled=USE_CUDA
+                        ):
                             batchOutputs = self.model(batchInputs)
-                            batchLoss = self.criterion(batchOutputs, batchActions)
+                            batchLoss = self.criterion(
+                                batchOutputs,
+                                batchActions
+                            )
 
                         validLossTot += batchLoss.item()
                         _, predicted = batchOutputs.max(1)
@@ -372,7 +503,8 @@ class Pipeline(nn.Module):
                 acc = validAcc
 
                 if (epoch + 1) % 10 == 0:
-                    print(f"  Valid Loss: {validLossAvg:.4f}, Valid Acc: {validAcc:.2f}%")
+                    print(f"  Valid Loss: {validLossAvg:.4f}", end="")
+                    print(f", Valid Acc: {validAcc:.2f}%")
             else:
                 lossAvg = trainLossAvg
                 acc = trainAcc
@@ -384,13 +516,16 @@ class Pipeline(nn.Module):
                     self.scheduler.step()
 
             if precisionBest != 0:
-                if (lossAvg < self.bestLoss and precisionBest == 1) or (acc > self.bestAcc and precisionBest == 2):
+                if ((lossAvg < self.bestLoss and precisionBest == 1)
+                   or (acc > self.bestAcc and precisionBest == 2)):
                     self.bestLoss = lossAvg
                     self.bestAcc = acc
                     self.patienceCount = 0
+                    print("Model improved...", end="")
                     if save:
                         torch.save(self.model.state_dict(), self.path)
-                        print("Model saved !")
+                        print(" saved !", end="")
+                    print()
                 else:
                     self.patienceCount += 1
                     if self.patienceCount >= self.patienceLimit:
@@ -410,14 +545,20 @@ class Pipeline(nn.Module):
 
         print("Finished training your network model...")
 
-        return [lossPrev, accPrev] if precisionBest == 0 else [self.bestLoss, self.bestAcc]
+        if precisionBest == 0:
+            return [lossPrev, accPrev]
+        else:
+            return [self.bestLoss, self.bestAcc]
 
 
-def search_training(folderPath, numTrials=100, resultsFolder="models/", save=True):
+def search_training(folderPath, numTrials, save=True):
     results = []
     failed = []
     files = os.listdir(folderPath)
-    folders = np.array([folder for folder in files if os.path.isdir(os.path.join(folderPath, folder))], dtype=int)
+    folders = np.array(
+        [f for f in files if os.path.isdir(os.path.join(folderPath, f))],
+        dtype=int
+    )
     if folders.size == 0:
         folder = 1
     else:
@@ -431,42 +572,42 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/", save=Tru
         print(f"Trial {trial + 1}/{numTrials}")
         print(f"{'='*60}")
 
-        viewDistance = random.choice(PARAMETERS['dataset']['viewDistance'])
+        viewDistance = choice(PARAM['dataset']['viewDistance'])
         inputSize = get_tensor_size(viewDistance)
-        layer1SizeMultiplier = random.choice(PARAMETERS['network']['layer1SizeMultiplier']),
+        layer1SizeMult = choice(PARAM['network']['layer1SizeMultiplier']),
 
         config = config = {
             'dataset': {
-                'doNormalPos': random.choice(PARAMETERS['dataset']['doNormalPos']),
+                'doNormalPos': choice(PARAM['dataset']['doNormalPos']),
                 'viewDistance': viewDistance,
             },
             'network': {
                 'inputSize': inputSize,
                 'outputSize': 5,
-                'layersNum': random.choice(PARAMETERS['network']['layersNum']),
-                'layer1Size': int(inputSize * layer1SizeMultiplier),
-                'layer1SizeMultiplier': layer1SizeMultiplier,
-                'layerSizeFun': random.choice(PARAMETERS['network']['layerSizeFun']),
-                'layerFun': random.choice(PARAMETERS['network']['layerFun']),
-                'doNormal': random.choice(PARAMETERS['network']['doNormal']),
-                'normalFun': random.choice(PARAMETERS['network']['normalFun']),
-                'action': random.choice(PARAMETERS['network']['action']),
-                'doDropout': random.choice(PARAMETERS['network']['doDropout']),
-                'dropoutRate': random.choice(PARAMETERS['network']['dropoutRate']),
+                'layersNum': choice(PARAM['network']['layersNum']),
+                'layer1Size': int(inputSize * layer1SizeMult[0]),
+                'layer1SizeMultiplier': layer1SizeMult[0],
+                'layerSizeFun': choice(PARAM['network']['layerSizeFun']),
+                'layerFun': choice(PARAM['network']['layerFun']),
+                'doNormal': choice(PARAM['network']['doNormal']),
+                'normalFun': choice(PARAM['network']['normalFun']),
+                'action': choice(PARAM['network']['action']),
+                'doDropout': choice(PARAM['network']['doDropout']),
+                'dropoutRate': choice(PARAM['network']['dropoutRate']),
             },
             'training': {
-                'learningRate': random.choice(PARAMETERS['training']['learningRate']),
-                'criterion': random.choice(PARAMETERS['training']['criterion']),
-                'optimizer': random.choice(PARAMETERS['training']['optimizer']),
-                'weightDecay': random.choice(PARAMETERS['training']['weightDecay']),
-                'doScheduler': random.choice(PARAMETERS['training']['doScheduler']),
-                'schedulerType': random.choice(PARAMETERS['training']['schedulerType']),
-                'validSplit': random.choice(PARAMETERS['training']['validSplit']),
-                'precision': random.choice(PARAMETERS['training']['precision']),
-                'precisionBest': random.choice(PARAMETERS['training']['precisionBest']),
-                'patienceLimit': random.choice(PARAMETERS['training']['patienceLimit']),
-                'epochsNum': random.choice(PARAMETERS['training']['epochsNum']),
-                'batchSize': random.choice(PARAMETERS['training']['batchSize']),
+                'learningRate': choice(PARAM['training']['learningRate']),
+                'criterion': choice(PARAM['training']['criterion']),
+                'optimizer': choice(PARAM['training']['optimizer']),
+                'weightDecay': choice(PARAM['training']['weightDecay']),
+                'doScheduler': choice(PARAM['training']['doScheduler']),
+                'schedulerType': choice(PARAM['training']['schedulerType']),
+                'validSplit': choice(PARAM['training']['validSplit']),
+                'precision': choice(PARAM['training']['precision']),
+                'precisionBest': choice(PARAM['training']['precisionBest']),
+                'patienceLimit': choice(PARAM['training']['patienceLimit']),
+                'epochsNum': choice(PARAM['training']['epochsNum']),
+                'batchSize': choice(PARAM['training']['batchSize']),
             },
             'trial_id': trial,
         }
@@ -508,7 +649,11 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/", save=Tru
             )
 
             pipeline = Pipeline(
-                os.path.join(folderPath, str(folder), f"pacman_model_V{trial + 1}.pth"),
+                os.path.join(
+                    folderPath,
+                    str(folder),
+                    f"pacman_model_V{trial + 1}.pth"
+                ),
                 dataset,
                 model,
                 criterion,
@@ -539,7 +684,14 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/", save=Tru
             print(f"SUCCESS - Loss: {bestLoss:.4f}, Acc: {bestAcc:.2f}%")
 
             if save:
-                with open(os.path.join(folderPath, str(folder), f"pacman_model_V{trial + 1}.json"), "w") as f:
+                with open(
+                    os.path.join(
+                        folderPath,
+                        str(folder),
+                        f"pacman_model_V{trial + 1}.json"
+                    ),
+                    "w"
+                ) as f:
                     json.dump(result, f, indent=2)
 
         except Exception as e:
@@ -557,7 +709,13 @@ def search_training(folderPath, numTrials=100, resultsFolder="models/", save=Tru
 
         finally:
             if save:
-                with open(os.path.join(folderPath, f"training_results_V{folder}.json"), "w") as f:
+                with open(
+                    os.path.join(
+                        folderPath,
+                        f"training_results_V{folder}.json"
+                    ),
+                    "w"
+                ) as f:
                     json.dump({
                         'results': results,
                         'failed': failed,
@@ -584,12 +742,11 @@ def get_best(folder, index=0, byAcc=True):
     results = dictJson['results']
 
     if results:
-        loss = np.array([result['performance']['loss'] for result in results])
+        loss = np.array([res['performance']['loss'] for res in results])
         lossInd = np.argsort(loss)
-        acc = np.array([result['performance']['accuracy'] for result in results])
+        acc = np.array([res['performance']['accuracy'] for res in results])
         accInd = np.argsort(-acc)
-        # bestAcc = max(results, key=lambda x: x['performance']['accuracy'])
-        # bestLoss = min(results, key=lambda x: float('inf') if x['performance']['loss'] == float('-inf') or x['performance']['loss'] == np.nan or x['performance']['loss'] < 0 else x['performance']['loss'])
+
         if byAcc:
             return int(results[accInd[index]]['trial_id']) + 1
         else:
@@ -600,11 +757,17 @@ if __name__ == "__main__":
     torch.manual_seed(42)
     random.seed(42)
 
-    results, failed = search_training("models", numTrials=10)
+    results, failed = search_training("models", 1000)
 
     if results:
-        bestAcc = max(results, key=lambda x: x['performance']['accuracy'])
-        bestLoss = min(results, key=lambda x: float('inf') if x['performance']['loss'] == float('-inf') or x['performance']['loss'] == np.nan or x['performance']['loss'] < 0 else x['performance']['loss'])
+        bestAcc = max(
+            results,
+            key=lambda x: x['performance']['accuracy']
+        )
+        bestLoss = min(
+            results,
+            key=lambda x: x['performance']['loss']
+        )
 
         print(f"\nBest by Accuracy: {bestAcc['performance']['accuracy']:.2f}%")
         print(f"Config: {json.dumps(bestAcc, indent=2)}")
