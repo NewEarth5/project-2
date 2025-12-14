@@ -3,3 +3,4 @@
 __init__.py
 /pacman_module/__init__.py
 /models
+*.csv
