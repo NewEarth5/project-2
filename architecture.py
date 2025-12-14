@@ -14,7 +14,9 @@ class PacmanNetwork(nn.Module):
         layersNum,
         layer1Size,
         layer_size_fun,
+        layer_fun,
         doNormal,
+        normal_fun,
         action,
         doDropout,
         dropoutRate
@@ -28,9 +30,9 @@ class PacmanNetwork(nn.Module):
             else:
                 layerSize = layer_size_fun(layerSizePrev, i, layersNum)
 
-            ordDict[f"layer{i + 1}"] = nn.Linear(layerSizePrev, layerSize)
+            ordDict[f"layer{i + 1}"] = layer_fun(layerSizePrev, layerSize)
             if doNormal:
-                ordDict[f"normal{i + 1}"] = nn.BatchNorm1d(layerSize)
+                ordDict[f"normal{i + 1}"] = normal_fun(layerSize)
             ordDict[f"action{i + 1}"] = action
             if doDropout:
                 ordDict[f"dropout{i + 1}"] = nn.Dropout(dropoutRate)
